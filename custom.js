@@ -219,7 +219,7 @@ function flowPages(group) {
   });
   brk(); root.innerHTML = '';
   return pages.map(p => { const t = REPORT_TITLE;
-    return { o: 'P', name: t, html: `<div class="pg P xp">${xHead(t)}<div class="xb">${p.map(x => x.h).join('')}</div>${xFoot()}</div>` }; });
+    return { o: 'P', name: [...new Set(p.map(x => x.bt).filter(Boolean))].join(' · ') || t, html: `<div class="pg P xp">${xHead(t)}<div class="xb">${p.map(x => x.h).join('')}</div>${xFoot()}</div>` }; });
 }
 function buildPages() {
   const r = cur(); const P = []; let flow = [];
@@ -229,6 +229,7 @@ function buildPages() {
     if (b.type === 'photos') { flushFlow(); P.push(...pagesPhotos(b)); return; }
     if (b.type === 'image') { flushFlow(); P.push(...pageImage(b)); return; }
     const pieces = b.type === 'chem' ? piecesChem(b, r) : b.type === 'stations' ? piecesStations(b) : b.type === 'sections' ? piecesSections(b) : b.type === 'text' ? piecesText(b) : b.type === 'sign' ? piecesSign(b) : [];
+    pieces.forEach(p => p.bt = b.title);
     if (pieces.length) flow.push({ pieces, newPage: !!b.newPage });
   });
   flushFlow();
