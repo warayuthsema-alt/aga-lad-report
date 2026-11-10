@@ -33,12 +33,23 @@ const C = k => cfg[k] ?? CUSTOM_DEF[k];
 
 function prevReport(k) { const ks = Object.keys(reports).filter(x => x < k && !reports[x]._new).sort(); return ks.length ? reports[ks[ks.length - 1]] : null; }
 /* รายงานรุ่นแรก (ก่อนมีระบบบล็อก) → แปลงเป็นบล็อก */
+const PEST_ORDER = ['แมลงหวี่', 'แมลงวัน', 'แมลงสาบ', 'ปลวก', 'หนู', 'ยุง', 'มด'];
+const guessPest = t => PEST_ORDER.find(p => (t || '').includes(p)) || '';
+function migrate(r) {
+  r.blocks.forEach(b => {
+    if (b.type === 'chem') { ['showActive', 'showRatio', 'showMethod'].forEach(k => { if (b[k] === undefined) b[k] = true; });
+      b.rows.forEach(c => { if (c.active === undefined) { const m = findMaster(c.pest, c.name); c.active = m ? m.active : ''; c.ratio = m ? m.ratio : ''; c.method = m ? m.method : ''; } }); }
+    if (b.type === 'sections') { if (b.showRisk === undefined) { b.showRisk = true; b.showRiskTable = true; }
+      b.items.forEach(s => { if (s.pest === undefined) { s.pest = guessPest(s.title); s.risk = 0; } }); }
+  });
+  r._mig = 2; return r;
+}
 function upgrade(r) {
-  if (Array.isArray(r.blocks)) return r;
+  if (Array.isArray(r.blocks)) return r._mig === 2 ? r : migrate(r);
   r.blocks = [newBlock('cover', { showDate: r.showDate !== false }), newBlock('chem', { rows: r.chem || clone(CUSTOM_DEF.chem), showDate: r.showDate !== false }),
     newBlock('sign', { techs: r.techs || [...CUSTOM_DEF.techs], showSign: false }),
     newBlock('sections', { items: r.sections || clone(CUSTOM_DEF.sections) }), newBlock('photos', { photos: r.photos || [], title: cfg.photoTitle || CUSTOM_DEF.photoTitle })];
-  delete r.chem; delete r.techs; delete r.sections; delete r.photos; return r;
+  delete r.chem; delete r.techs; delete r.sections; delete r.photos; return migrate(r);
 }
 /* เดือนใหม่: คัดลอกโครงรายงานจากเดือนก่อน ล้างตัวเลข/รูป */
 function blank(k) {
@@ -139,9 +150,10 @@ function piecesChem(b, r) {
   if (b.showInfo !== false) { const ct = (C('contracts') || []).filter(Boolean);
     out.push({ h: `<div class="xi"><div><span>สถานที่ให้บริการ</span><b>${esc(C('client'))}</b></div>${b.showDate !== false ? `<div><span>วันที่ทำบริการ / Service Date</span><b>${esc(dLong(r.svcDate))}</b></div>` : ''}${ct.length ? `<div><span>เลขที่สัญญา</span><b>${esc(ct.join(', '))}</b></div>` : ''}<div><span>ผู้จัดทำรายงาน</span><b>${esc(C('preparer'))}</b></div></div>` }); }
   const grp = []; rows.forEach(c => { const g = grp[grp.length - 1]; if (g && g.p === (c.pest || '')) g.items.push(c); else grp.push({ p: c.pest || '', items: [c] }); });
-  const hd = `<tr><th style="width:150px">ชนิดของแมลง</th><th>ชื่อการค้าของสารเคมี<br><small>Trade Name of Chemicals</small></th>${b.showNote !== false ? '<th style="width:170px">หมายเหตุ</th>' : ''}</tr>`;
-  let chunk = [], n = 0; const flushT = () => { if (chunk.length) out.push({ h: `<table class="xct">${hd}${chunk.join('')}</table>` }); chunk = []; n = 0; };
-  grp.forEach((g, gi) => { if (n + g.items.length > 16) flushT(); chunk.push(g.items.map((c, i) => `<tr class="${gi % 2 ? 'z' : ''}">${i === 0 ? `<td class="pc" rowspan="${g.items.length}">${nl(g.p.replace(/\s*\/\s*/g, '\n'))}</td>` : ''}<td><span class="ck ${c.used ? 'on' : ''}"></span>${esc(c.name)}</td>${b.showNote !== false ? `<td class="nt">${esc(c.note)}</td>` : ''}</tr>`).join('')); n += g.items.length; });
+  const A = b.showActive !== false, R = b.showRatio !== false, Mt = b.showMethod !== false, Nt = b.showNote !== false; const wide = [A, R, Mt, Nt].filter(Boolean).length >= 3;
+  const hd = `<tr><th style="width:${wide ? 78 : 130}px">ชนิดของแมลง<br><small>Target Pest</small></th><th>ชื่อการค้าของสารเคมี<br><small>Trade Name</small></th>${A ? '<th style="width:128px">สารออกฤทธิ์<br><small>Active Ingredient</small></th>' : ''}${R ? '<th style="width:118px">อัตราส่วนผสม<br><small>Mix Ratio</small></th>' : ''}${Mt ? '<th style="width:106px">วิธีการ<br><small>Method</small></th>' : ''}${Nt ? `<th style="width:${wide ? 80 : 150}px">หมายเหตุ</th>` : ''}</tr>`;
+  let chunk = [], n = 0; const flushT = () => { if (chunk.length) out.push({ h: `<table class="xct${wide ? ' sm' : ''}">${hd}${chunk.join('')}</table>` }); chunk = []; n = 0; };
+  grp.forEach((g, gi) => { if (n + g.items.length > 14) flushT(); chunk.push(g.items.map((c, i) => `<tr class="${gi % 2 ? 'z' : ''}">${i === 0 ? `<td class="pc" rowspan="${g.items.length}">${nl(g.p.replace(/\s*\/\s*/g, '\n'))}</td>` : ''}<td><span class="ck ${c.used ? 'on' : ''}"></span>${esc(c.name)}</td>${A ? `<td>${esc(c.active)}</td>` : ''}${R ? `<td class="rt">${esc(c.ratio)}</td>` : ''}${Mt ? `<td>${esc(c.method)}</td>` : ''}${Nt ? `<td class="nt">${esc(c.note)}</td>` : ''}</tr>`).join('')); n += g.items.length; });
   flushT(); out.push({ h: `<div class="xlegend"><span class="ck on"></span> = สารเคมี/อุปกรณ์ที่ใช้ในการบริการครั้งนี้</div>` });
   return out;
 }
@@ -165,8 +177,11 @@ function piecesStations(b) {
 }
 function piecesSections(b) {
   const cl = esc(C('client')); const out = [{ k: 'h', h: bHead(b.title) }];
+  const rk = n => RISK[+n] ? `<span class="rk ${RISK[+n].cls}">ความเสี่ยง${RISK[+n].label}</span>` : '';
+  const withRisk = b.items.filter(s => RISK[+s.risk]);
+  if (b.showRiskTable !== false && withRisk.length) out.push({ h: `<table class="xct xrk"><tr><th style="width:34px">ข้อ</th><th style="width:120px">ชนิดสัตว์พาหะ</th><th>ระดับความเสี่ยง · Risk Level</th><th style="width:250px">ความหมาย</th></tr>${b.items.map((s, i) => RISK[+s.risk] ? `<tr><td class="c">${i + 1}</td><td><b>${esc(s.pest || '-')}</b></td><td><div class="rbar">${[1, 2, 3, 4].map(n => `<i class="${n <= +s.risk ? RISK[+s.risk].cls : ''}"></i>`).join('')}${rk(s.risk)}</div></td><td class="nt">${esc(RISK[+s.risk].desc)}</td></tr>` : '').join('')}</table><div class="xlegend">ระดับความเสี่ยง: ต่ำ = ไม่พบตัว/ร่องรอย · ปานกลาง = พบร่องรอยหรือพบเล็กน้อย · สูง = พบชัดเจนหลายจุด · สูงมาก = ระบาด/เสี่ยงปนเปื้อน</div>` });
   b.items.forEach((s, i) => {
-    out.push({ k: 'h', h: `<div class="xs-t"><span class="no">${i + 1}</span>${esc(s.title)}</div>` });
+    out.push({ k: 'h', h: `<div class="xs-t"><span class="no">${i + 1}</span><span style="flex:1">${esc(s.title)}</span>${b.showRisk !== false ? rk(s.risk) : ''}</div>` });
     if ((s.finding || '').trim()) out.push({ h: `<div class="xs-f"><span class="lab">ผลการตรวจสอบ</span><div>${nl(s.finding)}</div></div>` });
     const adv = (s.adv || []).filter(x => x.trim()), cli = (s.cli || []).filter(x => x.trim());
     if (adv.length || cli.length) out.push({ k: 'h', h: `<div class="xs-a">การปรับปรุงแก้ไข / ข้อเสนอแนะ</div>` });
@@ -204,7 +219,7 @@ function pageImage(b) {
 }
 /* ตัวจัดหน้า: วัดความสูงจริงของทุกชิ้น ไหลต่อเนื่องข้ามบล็อก ขึ้นหน้าใหม่เมื่อเต็ม หรือเมื่อบล็อกตั้ง "เริ่มหน้าใหม่" */
 function flowPages(group) {
-  const root = $('#measure'); root.innerHTML = `<div class="pg P xp"><div class="xb" style="position:static;width:${794 - 2 * 56}px"></div></div>`; const body = root.querySelector('.xb');
+  const root = $('#measure'); root.innerHTML = `<div class="pg P xp"><div class="xb" style="position:static;display:flow-root;width:${794 - 2 * 56}px"></div></div>`; const body = root.querySelector('.xb');
   const hOf = h => { body.innerHTML = h; return body.getBoundingClientRect().height + 1; };
   const AVAIL = 1123 - 188 - 70; const pages = []; let curr = [], h = 0;
   const brk = () => { while (curr.length && curr[curr.length - 1].k === 'gap') curr.pop(); if (curr.length) pages.push(curr); curr = []; h = 0; };
@@ -249,20 +264,28 @@ function renderInfo() {
   <label class="f">เลขที่สัญญา (ถ้ามีหลายสัญญา คั่นด้วย ,)<input data-c="contracts" value="${esc((C('contracts') || []).join(', '))}"></label>
   <label class="f">ชื่อผู้จัดทำ<input data-c="preparer" value="${esc(C('preparer'))}"></label>
   <label class="f">ตำแหน่งผู้จัดทำ<input data-c="preparerTitle" value="${esc(C('preparerTitle'))}"></label>
-  <label class="f">บรรทัดชนิดสัตว์พาหะบนหน้าปก<input data-c="pestsLine" value="${esc(C('pestsLine'))}"></label>
+  <div class="f" style="grid-column:1/-1">ชนิดสัตว์พาหะตามสัญญา <span class="hint">(ใช้กับตารางสารเคมี และหัวข้อสรุปผลของทุกแมลง)</span><div class="opts" id="cpests">${pestChoices().map(p => `<label class="opt"><input type="checkbox" data-cp="${esc(p)}" ${cpests().includes(p) ? 'checked' : ''}> ${esc(p)}</label>`).join('')}<input id="cpAdd" placeholder="+ ชนิดอื่น เช่น นก, ตัวเงินตัวทอง" style="width:220px"></div></div>
+  <label class="f">บรรทัดชนิดสัตว์พาหะบนหน้าปก<input data-c="pestsLine" id="pestsLine" value="${esc(C('pestsLine'))}"></label>
   <label class="f">กราฟรายเดือนเริ่มนับปีที่เดือน<select data-c="yearStart">${TH_M.map((t, i) => `<option value="${i + 1}" ${+C('yearStart') === i + 1 ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div></div>
   <div class="card"><h2>การเข้าบริการ · ${esc(mName(curKey()))}</h2><div class="grid2"><label class="f">วันที่ทำบริการ<input type="date" id="svcDate" value="${esc(r.svcDate)}"></label></div><p class="hint" id="dh"></p>
   <p class="hint">การแสดง/ซ่อนวันที่ในหน้าปกและหน้าสารเคมี ตั้งได้ในแท็บ 2 "โครงรายงาน" ที่ตัวเลือกของบล็อกนั้น</p></div>${navRow('info')}`;
   el.querySelectorAll('[data-c]').forEach(e => { const f = () => { const k = e.dataset.c; cfg[k] = k === 'contracts' ? e.value.split(',').map(s => s.trim()).filter(Boolean) : k === 'yearStart' ? +e.value : e.value; if (k === 'client') $('#appTitle').textContent = 'รายงาน Custom · ' + e.value; cfgDirty(); }; e.oninput = f; e.onchange = f; });
+  el.querySelectorAll('[data-cp]').forEach(e => e.onchange = () => { const all = pestChoices(); const sel = new Set(cpests()); e.checked ? sel.add(e.dataset.cp) : sel.delete(e.dataset.cp); setCPests(all.filter(p => sel.has(p))); });
+  const ca = $('#cpAdd'); ca.onkeydown = ev => { if (ev.key !== 'Enter' || !ca.value.trim()) return; const p = ca.value.trim(); cfg.extraPests = [...new Set([...(cfg.extraPests || []), p])]; setCPests([...cpests(), p]); renderInfo(); };
   const d = $('#svcDate'); const dh = () => { $('#dh').innerHTML = r.svcDate && r.svcDate.slice(0, 7) !== curKey() ? '<b style="color:#d92d20">วันที่บริการไม่ตรงกับเดือนที่เลือก</b>' : ''; };
   d.oninput = () => { r.svcDate = d.value; markDirty(); dh(); }; dh();
   bindNav(el);
 }
+/* ── ชนิดสัตว์พาหะตามสัญญา ── */
+const pestChoices = () => [...new Set([...PEST_LIST.map(x => x.p), ...(cfg.extraPests || []), ...(cfg.contractPests || [])])];
+const cpests = () => C('contractPests') || [];
+function setCPests(list) { const lineAuto = !cfg.pestsLine || cfg.pestsLine === cpests().join('/'); cfg.contractPests = list; if (lineAuto) { cfg.pestsLine = list.join('/'); const pl = $('#pestsLine'); if (pl) pl.value = cfg.pestsLine; } cfgDirty(); }
 /* ── ตัวเลือกของแต่ละบล็อก (แท็บโครงรายงาน) ── */
 const tog = (k, label, on) => `<label class="opt"><input type="checkbox" data-o="${k}" ${on ? 'checked' : ''}> ${esc(label)}</label>`;
 function blockOptions(b) {
   if (b.type === 'cover') return `<label class="f">ชื่อรายงานบนหน้าปก (Enter = ขึ้นบรรทัดใหม่)<textarea data-t="coverTitle" rows="2">${esc(b.coverTitle || 'รายงานการปฏิบัติงาน\nกำจัดแมลงและสัตว์พาหะ')}</textarea></label><div class="opts">${tog('showPests', 'แสดงบรรทัดชนิดสัตว์พาหะ', b.showPests !== false)}${tog('showContract', 'แสดงเลขที่สัญญา', b.showContract !== false)}${tog('showDate', 'แสดงวันที่ทำบริการ', b.showDate !== false)}${tog('showPreparer', 'แสดงผู้จัดทำ', b.showPreparer !== false)}</div>`;
-  if (b.type === 'chem') return `<div class="opts">${tog('showInfo', 'แสดงกล่องข้อมูลการบริการ', b.showInfo !== false)}${tog('showDate', 'แสดงวันที่ทำบริการ', b.showDate !== false)}${tog('showNote', 'แสดงคอลัมน์หมายเหตุ', b.showNote !== false)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
+  if (b.type === 'chem') return `<div class="opts">${tog('showInfo', 'แสดงกล่องข้อมูลการบริการ', b.showInfo !== false)}${tog('showDate', 'แสดงวันที่ทำบริการ', b.showDate !== false)}${tog('showActive', 'แสดงคอลัมน์สารออกฤทธิ์', b.showActive !== false)}${tog('showRatio', 'แสดงคอลัมน์อัตราส่วนผสม', b.showRatio !== false)}${tog('showMethod', 'แสดงคอลัมน์วิธีการ', b.showMethod !== false)}${tog('showNote', 'แสดงคอลัมน์หมายเหตุ', b.showNote !== false)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
+  if (b.type === 'sections') return `<div class="opts">${tog('showRiskTable', 'แสดงตารางสรุประดับความเสี่ยง', b.showRiskTable !== false)}${tog('showRisk', 'แสดงป้ายระดับความเสี่ยงที่หัวข้อ', b.showRisk !== false)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
   if (b.type === 'stations') return `<div class="grid2"><label class="f">คอลัมน์ตัวเลข (คั่นด้วย , เช่น แมลงวัน, แมลงหวี่, ยุง)<input data-t="colsTxt" value="${esc(b.cols.join(', '))}"></label>
     <label class="f">หน่วย (แสดงในกราฟ)<input data-t="unit" value="${esc(b.unit || '')}"></label>
     <label class="f">หัวคอลัมน์ พบ / ไม่พบ (คั่นด้วย ,)<input data-t="foundTxt" value="${esc((b.found || ['พบ', 'ไม่พบ']).join(', '))}"></label>
@@ -310,10 +333,16 @@ function numIn(attrs, v) { return `<input type="number" inputmode="numeric" min=
 function prevBlock(b) { const p = prevReport(curKey()); if (!p) return null; return upgrade(p).blocks.find(x => x.id === b.id) || null; }
 function editorOf(b) {
   if (b.type === 'cover') return `<p class="hint">ข้อมูลหน้าปกมาจากแท็บ 1 (ชื่อลูกค้า เลขที่สัญญา ผู้จัดทำ วันที่) · ตัวเลือกการแสดงผลอยู่ในแท็บ 2</p>`;
-  if (b.type === 'chem') return `<div class="row" style="margin-bottom:6px"><button class="btn sm" data-x="all">ติ๊กทั้งหมด</button><button class="btn sm" data-x="none">ไม่ติ๊กทั้งหมด</button><span class="hint">ชนิดแมลงที่พิมพ์เหมือนกันและอยู่ติดกันจะรวมเป็นช่องเดียว (ใช้ " / " ขึ้นบรรทัดใหม่)</span></div>
-    <table class="ed"><tr><th style="width:40px">ใช้</th><th style="width:170px">ชนิดของแมลง</th><th>ชื่อการค้าของสารเคมี</th><th>หมายเหตุ</th><th style="width:132px"></th></tr>
-    ${b.rows.map((c, j) => `<tr class="${c.used ? '' : 'off'}"><td><input type="checkbox" data-u="${j}" ${c.used ? 'checked' : ''} style="width:20px;height:20px"></td><td><input type="text" data-k="pest" data-j="${j}" value="${esc(c.pest)}"></td><td><input type="text" data-k="name" data-j="${j}" value="${esc(c.name)}"></td><td><input type="text" data-k="note" data-j="${j}" value="${esc(c.note)}"></td>
-    <td><button class="btn sm" data-mv="-1" data-j="${j}">▲</button><button class="btn sm" data-mv="1" data-j="${j}">▼</button><button class="btn sm del" data-rm="${j}">ลบ</button></td></tr>`).join('')}</table><button class="btn sm" data-x="add" style="margin-top:8px">+ เพิ่มสารเคมี</button>`;
+  if (b.type === 'chem') { const pl = [...new Set([...cpests(), ...b.rows.map(c => c.pest).filter(Boolean)])]; const miss = cpests().filter(p => !b.rows.some(c => c.pest === p));
+    return `<div class="row" style="margin-bottom:6px"><button class="btn sm" data-x="all">ติ๊กทั้งหมด</button><button class="btn sm" data-x="none">ไม่ติ๊กทั้งหมด</button>${miss.length ? `<button class="btn sm pri" data-x="fill">+ เพิ่มแถวให้แมลงในสัญญาที่ยังไม่มี (${esc(miss.join(', '))})</button>` : ''}<span class="hint">เลือกชื่อสารจากทะเบียน → สารออกฤทธิ์ อัตราส่วน และวิธีการเติมให้อัตโนมัติ (แก้ไขได้)</span></div>
+    <div style="overflow-x:auto"><table class="ed chemed"><tr><th style="width:36px">ใช้</th><th style="width:110px">ชนิดแมลง</th><th style="min-width:200px">ชื่อการค้า (เลือกจากทะเบียน)</th><th>สารออกฤทธิ์</th><th style="width:150px">อัตราส่วนผสม</th><th style="width:130px">วิธีการ</th><th style="width:110px">หมายเหตุ</th><th style="width:120px"></th></tr>
+    ${b.rows.map((c, j) => { const ms = masterOf(c.pest); const sel = ms.findIndex(m => m.name === c.name && m.method === c.method); const own = sel < 0;
+      return `<tr class="${c.used ? '' : 'off'}"><td><input type="checkbox" data-u="${j}" ${c.used ? 'checked' : ''} style="width:20px;height:20px"></td>
+      <td><select data-pest="${j}">${(pl.includes(c.pest) ? pl : [c.pest, ...pl]).map(p => `<option ${p === c.pest ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></td>
+      <td><select data-ms="${j}"><option value="">— พิมพ์ชื่อเอง / อุปกรณ์ —</option>${ms.map((m, k) => `<option value="${m.i}" ${k === sel ? 'selected' : ''}>${esc(m.name)} · ${esc(m.method)}</option>`).join('')}</select>${own ? `<input type="text" data-k="name" data-j="${j}" value="${esc(c.name)}" placeholder="ชื่อสาร / อุปกรณ์" style="margin-top:4px">` : ''}</td>
+      <td><input type="text" data-k="active" data-j="${j}" value="${esc(c.active)}"></td><td><input type="text" data-k="ratio" data-j="${j}" value="${esc(c.ratio)}"></td><td><input type="text" data-k="method" data-j="${j}" value="${esc(c.method)}"></td><td><input type="text" data-k="note" data-j="${j}" value="${esc(c.note)}"></td>
+      <td><button class="btn sm" data-mv="-1" data-j="${j}">▲</button><button class="btn sm" data-mv="1" data-j="${j}">▼</button><button class="btn sm del" data-rm="${j}">ลบ</button></td></tr>`; }).join('')}</table></div>
+    <div class="row" style="margin-top:8px"><select data-addp>${pl.map(p => `<option>${esc(p)}</option>`).join('')}</select><button class="btn sm" data-x="add">+ เพิ่มสารเคมีของแมลงนี้</button></div>`; }
   if (b.type === 'stations') { const p = prevBlock(b); const multi = b.cols.length > 1;
     return `<div class="stat" data-stat></div><div style="overflow-x:auto"><table class="ed"><tr><th style="width:40px">ที่</th><th>สถานที่ / ตำแหน่ง</th><th style="width:80px">เดือนก่อน</th>${b.cols.map(c => `<th style="width:92px">${esc(c)}</th>`).join('')}${multi ? '<th style="width:60px">รวม</th>' : ''}${b.showRemark ? '<th>หมายเหตุ</th>' : ''}<th style="width:132px"></th></tr>
     ${b.rows.map((x, j) => `<tr class="${sum(x.v) ? 'hitrow' : ''}"><td><b>${j + 1}</b></td><td><input type="text" data-loc="${j}" value="${esc(x.loc)}"></td><td class="hint">${p && p.rows[j] ? sum(p.rows[j].v) : ''}</td>${x.v.map((v, c) => `<td>${numIn(`data-j="${j}" data-c="${c}"`, v)}</td>`).join('')}${multi ? `<td data-tot="${j}"><b>${sum(x.v)}</b></td>` : ''}${b.showRemark ? `<td><input type="text" data-rem="${j}" value="${esc(x.rem)}"></td>` : ''}
@@ -321,12 +350,16 @@ function editorOf(b) {
     <div class="row" style="margin-top:8px"><button class="btn sm" data-x="add">+ เพิ่มจุด</button><button class="btn sm" data-x="bulk">วางรายชื่อจุดหลายบรรทัด</button><button class="btn sm" data-x="zero">ล้างเป็น 0</button>${p ? '<button class="btn sm" data-x="copy">คัดลอกตัวเลขจากเดือนก่อน</button>' : ''}</div>
     <div class="bulk" style="display:none"><textarea rows="6" placeholder="วางรายชื่อจุด บรรทัดละ 1 จุด"></textarea><div class="row"><button class="btn sm pri" data-x="bulkok">ใช้รายชื่อนี้</button><span class="hint">แทนที่ชื่อจุดเดิมตามลำดับ และเพิ่มจุดใหม่ถ้ายาวกว่าเดิม</span></div></div>
     <label class="f" style="margin-top:10px">หมายเหตุท้ายตาราง<textarea data-t="note" rows="2">${esc(b.note || '')}</textarea></label>`; }
-  if (b.type === 'sections') return `${b.items.map((s, j) => `<div class="sec" data-s="${j}"><div class="row"><b>ข้อ ${j + 1}</b><input type="text" data-f="title" value="${esc(s.title)}" style="flex:1;border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-weight:700">
+  if (b.type === 'sections') { const pl = [...new Set([...cpests(), ...b.items.map(s => s.pest).filter(Boolean)])]; const miss = cpests().filter(p => !b.items.some(s => s.pest === p));
+    return `<div class="row" style="margin-bottom:8px">${miss.length ? `<button class="btn sm pri" data-x="fill">+ เพิ่มหัวข้อให้แมลงในสัญญาที่ยังไม่มี (${esc(miss.join(', '))})</button>` : '<span class="pill ok">มีหัวข้อครบทุกแมลงตามสัญญา</span>'}<span class="hint">เลือกชนิดสัตว์พาหะและระดับความเสี่ยง → ผลการตรวจและข้อเสนอแนะเติมให้ตามระดับ แก้ไขต่อได้</span></div>
+    ${b.items.map((s, j) => `<div class="sec" data-s="${j}"><div class="row"><b>ข้อ ${j + 1}</b><input type="text" data-f="title" value="${esc(s.title)}" style="flex:1;border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-weight:700">
     <button class="btn sm" data-smv="-1">▲</button><button class="btn sm" data-smv="1">▼</button><button class="btn sm del" data-sdel>ลบข้อนี้</button></div>
+    <div class="row rkrow"><label>สัตว์พาหะ <select data-sp>${(s.pest && !pl.includes(s.pest) ? [s.pest, ...pl] : pl).map(p => `<option ${p === s.pest ? 'selected' : ''}>${esc(p)}</option>`).join('')}${s.pest ? '' : '<option selected value="">— เลือก —</option>'}</select></label>
+    <span>ระดับความเสี่ยง</span>${[1, 2, 3, 4].map(n => `<button class="rkb ${RISK[n].cls} ${+s.risk === n ? 'on' : ''}" data-rk="${n}" title="${esc(RISK[n].desc)}">${RISK[n].label}</button>`).join('')}<span class="hint" data-rkh>${RISK[+s.risk] ? esc(RISK[+s.risk].desc) : 'ยังไม่ได้เลือกระดับ'}</span></div>
     <label class="f" style="margin-top:8px">ผลการตรวจสอบ<textarea data-f="finding" rows="3">${esc(s.finding)}</textarea></label>
     <div class="grid2" style="margin-top:8px"><label class="f">ข้อเสนอแนะ โดย บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด (บรรทัดละ 1 ข้อ)<textarea data-l="adv" rows="4">${esc((s.adv || []).join('\n'))}</textarea></label>
     <label class="f">ข้อเสนอแนะ โดย ${esc(C('client') || 'ลูกค้า')} (บรรทัดละ 1 ข้อ)<textarea data-l="cli" rows="4">${esc((s.cli || []).join('\n'))}</textarea></label></div></div>`).join('')}
-    <div class="row"><button class="btn sm" data-x="add">+ เพิ่มหัวข้อ</button><button class="btn sm" data-x="reset">ใช้ข้อความตั้งต้น</button></div>`;
+    <div class="row"><button class="btn sm" data-x="add">+ เพิ่มหัวข้อ</button><button class="btn sm" data-x="reset">สร้างใหม่ตามแมลงในสัญญา (ข้อความตั้งต้น)</button></div>`; }
   if (b.type === 'text') return `<label class="f">เนื้อหา (เว้นบรรทัดว่างเพื่อขึ้นย่อหน้าใหม่)<textarea data-t="body" rows="6">${esc(b.body || '')}</textarea></label>`;
   if (b.type === 'sign') return `<label class="f">รายชื่อผู้เข้าทำบริการ (บรรทัดละ 1 คน)<textarea data-techs rows="4">${esc((b.techs || []).join('\n'))}</textarea></label>`;
   if (b.type === 'photos') return `<div class="drop" data-drop>ลากรูปมาวางที่นี่ หรือ <u>กดเพื่อเลือกหลายรูปพร้อมกัน</u><br><span class="hint">${b.photos.length} รูป · ${Math.ceil(b.photos.length / (+b.perPage || 9)) || 0} หน้า (หน้าละ ${b.perPage || 9} รูป) · หมุนตามที่ถ่ายและจัดแนวตั้ง/นอนอัตโนมัติ</span></div>
@@ -353,7 +386,14 @@ function bindEditor(box, b) {
     q('input[data-k]').forEach(e => e.oninput = () => { b.rows[+e.dataset.j][e.dataset.k] = e.value; markDirty(); });
     q('[data-mv]').forEach(x => x.onclick = () => { const j = +x.dataset.j, k = j + +x.dataset.mv; if (k < 0 || k >= b.rows.length) return; [b.rows[j], b.rows[k]] = [b.rows[k], b.rows[j]]; markDirty(); re(); });
     q('[data-rm]').forEach(x => x.onclick = () => { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = 'ยืนยัน'; return; } b.rows.splice(+x.dataset.rm, 1); markDirty(); re(); });
-    q('[data-x]').forEach(x => x.onclick = () => { const a = x.dataset.x; if (a === 'all' || a === 'none') b.rows.forEach(c => c.used = a === 'all'); if (a === 'add') { const l = b.rows[b.rows.length - 1]; b.rows.push({ pest: l ? l.pest : '', name: '', used: true, note: '' }); } markDirty(); re(); });
+    const putAfter = (p, row) => { let k = -1; b.rows.forEach((c, i) => { if (c.pest === p) k = i; }); b.rows.splice(k < 0 ? b.rows.length : k + 1, 0, row); };
+    const firstOf = p => { const m = masterOf(p)[0]; return m ? { pest: p, name: m.name, active: m.active, ratio: m.ratio, method: m.method, used: true, note: '' } : { pest: p, name: '', active: '', ratio: '', method: '', used: true, note: '' }; };
+    q('[data-pest]').forEach(e => e.onchange = () => { const c = b.rows[+e.dataset.pest]; c.pest = e.value; if (!findMaster(c.pest, c.name)) Object.assign(c, firstOf(c.pest), { used: c.used, note: c.note }); markDirty(); re(); });
+    q('[data-ms]').forEach(e => e.onchange = () => { const c = b.rows[+e.dataset.ms]; if (e.value === '') { c.name = ''; c.active = ''; c.ratio = ''; c.method = ''; } else { const m = CHEM_MASTER[+e.value]; c.name = m[1]; c.active = m[2]; c.ratio = m[3]; c.method = m[4]; } markDirty(); re(); });
+    q('[data-x]').forEach(x => x.onclick = () => { const a = x.dataset.x; if (a === 'all' || a === 'none') b.rows.forEach(c => c.used = a === 'all');
+      if (a === 'add') { const p = box.querySelector('[data-addp]').value; putAfter(p, firstOf(p)); }
+      if (a === 'fill') cpests().filter(p => !b.rows.some(c => c.pest === p)).forEach(p => b.rows.push(firstOf(p)));
+      markDirty(); re(); });
   }
   if (b.type === 'stations') {
     const upd = () => { const tot = stTotalOf(b); const hit = b.rows.filter(x => sum(x.v) > 0).length; const s = box.querySelector('[data-stat]'); if (s) s.innerHTML = `<span>พบ <b>${hit}</b> / ${b.rows.length} จุด</span><span>รวม <b>${tot}</b> ${esc(b.unit || '')}</span>${b.action != null && tot >= b.action ? '<span class="pill r4">เกิน Action limit</span>' : b.alert != null && tot >= b.alert ? '<span class="pill r3">เกิน Alert limit</span>' : ''}`; };
@@ -379,10 +419,18 @@ function bindEditor(box, b) {
     q('[data-s]').forEach(sb => { const j = +sb.dataset.s, s = b.items[j];
       sb.querySelectorAll('[data-f]').forEach(e => e.oninput = () => { s[e.dataset.f] = e.value; markDirty(); });
       sb.querySelectorAll('[data-l]').forEach(e => e.oninput = () => { s[e.dataset.l] = lines(e.value); markDirty(); });
+      const autoTxt = () => { const a = adviceOf(s.pest, s.risk || 1); return a.finding + a.adv.join() + a.cli.join(); };
+      const edited = () => (s.finding || '') + (s.adv || []).join() + (s.cli || []).join() !== s._auto && ((s.finding || '').trim() || (s.adv || []).length);
+      const apply = (keepTitle) => { const a = adviceOf(s.pest, s.risk || 1); if (!keepTitle) s.title = a.title; s.finding = a.finding; s.adv = a.adv; s.cli = a.cli; s._auto = autoTxt(); markDirty(); re(); };
+      const ask = (fn) => { if (!s.pest) { markDirty(); re(); return; } if (!edited()) return fn(); const bar = sb.querySelector('[data-rkh]'); bar.innerHTML = '<b style="color:#b54708">ข้อความถูกแก้ไขไว้ — </b><button class="btn sm pri" data-ok>แทนที่ด้วยข้อความตามระดับ</button> <button class="btn sm" data-no>คงข้อความเดิม</button>'; bar.querySelector('[data-ok]').onclick = fn; bar.querySelector('[data-no]').onclick = () => { markDirty(); re(); }; };
+      sb.querySelector('[data-sp]').onchange = e => { s.pest = e.target.value; ask(() => apply(false)); };
+      sb.querySelectorAll('[data-rk]').forEach(x => x.onclick = () => { s.risk = +x.dataset.rk; sb.querySelectorAll('[data-rk]').forEach(y => y.classList.toggle('on', y === x)); ask(() => apply(true)); });
       sb.querySelectorAll('[data-smv]').forEach(x => x.onclick = () => { const k = j + +x.dataset.smv; if (k < 0 || k >= b.items.length) return; [b.items[j], b.items[k]] = [b.items[k], b.items[j]]; markDirty(); re(); });
       const d = sb.querySelector('[data-sdel]'); d.onclick = () => { if (!d.dataset.sure) { d.dataset.sure = 1; d.textContent = 'กดอีกครั้งเพื่อลบ'; return; } b.items.splice(j, 1); markDirty(); re(); }; });
-    q('[data-x]').forEach(x => x.onclick = () => { if (x.dataset.x === 'add') b.items.push({ title: 'สรุปผลการตรวจเช็ค … พื้นที่ภายในอาคาร', finding: '', adv: [], cli: [] });
-      if (x.dataset.x === 'reset') { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = 'แทนที่ข้อความทั้งหมด? กดอีกครั้ง'; return; } b.items = clone(CUSTOM_DEF.sections); } markDirty(); re(); });
+    const mk = p => { const o = mkSection(p, 1); o._auto = o.finding + o.adv.join() + o.cli.join(); return o; };
+    q('[data-x]').forEach(x => x.onclick = () => { if (x.dataset.x === 'add') b.items.push({ title: 'สรุปผลการตรวจเช็ค … พื้นที่ภายในอาคาร', pest: '', risk: 0, finding: '', adv: [], cli: [] });
+      if (x.dataset.x === 'fill') cpests().filter(p => !b.items.some(s => s.pest === p)).forEach(p => b.items.push(mk(p)));
+      if (x.dataset.x === 'reset') { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = 'แทนที่ข้อความทั้งหมด? กดอีกครั้ง'; return; } b.items = cpests().map(mk); } markDirty(); re(); });
   }
   if (b.type === 'sign') { const t = box.querySelector('[data-techs]'); t.oninput = () => { b.techs = lines(t.value); markDirty(); }; }
   if (b.type === 'photos' || b.type === 'image') {
@@ -405,6 +453,9 @@ function issues() {
   if (!vb.length) out.push(['bad', 'ยังไม่มีบล็อกที่แสดงในรายงาน']);
   vb.forEach(b => {
     if (b.type === 'chem' && !b.rows.some(c => c.used)) out.push(['warn', `${b.title}: ยังไม่ได้ติ๊กสารเคมีที่ใช้`]);
+    if (b.type === 'chem') { const m = cpests().filter(p => !b.rows.some(c => c.pest === p)); if (m.length) out.push(['warn', `${b.title}: ยังไม่มีสารเคมีของ ${m.join(', ')} (ตามสัญญา)`]); }
+    if (b.type === 'sections') { const m = cpests().filter(p => !b.items.some(s => s.pest === p)); if (m.length) out.push(['warn', `${b.title}: ยังไม่มีหัวข้อสรุปผลของ ${m.join(', ')} (ตามสัญญา)`]);
+      const nr = b.items.filter(s => !RISK[+s.risk]).length; if (nr) out.push(['warn', `${b.title}: ${nr} หัวข้อยังไม่ได้เลือกระดับความเสี่ยง`]); }
     if (b.type === 'sign' && b.showTechs !== false && !(b.techs || []).length) out.push(['bad', `${b.title}: ยังไม่ได้ใส่รายชื่อผู้เข้าทำบริการ`]);
     if (b.type === 'photos' && !b.photos.length) out.push(['warn', `${b.title}: ยังไม่มีรูป (บล็อกนี้จะไม่ขึ้นในรายงาน)`]);
     if (b.type === 'image' && !b.img) out.push(['warn', `${b.title}: ยังไม่ได้ใส่รูป (บล็อกนี้จะไม่ขึ้นในรายงาน)`]);
