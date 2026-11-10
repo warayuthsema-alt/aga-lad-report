@@ -40,12 +40,12 @@ function migrate(r) {
     if (b.type === 'chem') { ['showActive', 'showRatio', 'showMethod'].forEach(k => { if (b[k] === undefined) b[k] = true; });
       b.rows.forEach(c => { if (c.active === undefined) { const m = findMaster(c.pest, c.name); c.active = m ? m.active : ''; c.ratio = m ? m.ratio : ''; c.method = m ? m.method : ''; } }); }
     if (b.type === 'sections') { if (b.showRisk === undefined) { b.showRisk = true; b.showRiskTable = true; }
-      b.items.forEach(s => { if (s.pest === undefined) { s.pest = guessPest(s.title); s.risk = 0; } }); }
+      b.items.forEach(s => { if (s.pest === undefined) { s.pest = guessPest(s.title); s.risk = 0; } if (s.kind === undefined) { const t = s.title || ''; s.kind = /กาว/.test(t) ? 'glue' : /เหยื่อพิษ/.test(t) ? 'bait' : /สถานีแมลงสาบ|บ้านแมลงสาบ/.test(t) ? 'crst' : /เครื่องดัก/.test(t) ? 'ilt' : /เหยื่อ.*ปลวก/.test(t) ? 'ttb' : 'area'; const m = t.match(/พื้นที่\s*(.+)$/); s.area = m ? m[1].trim() : 'ภายในอาคาร'; } }); }
   });
-  r._mig = 2; return r;
+  r._mig = 3; return r;
 }
 function upgrade(r) {
-  if (Array.isArray(r.blocks)) return r._mig === 2 ? r : migrate(r);
+  if (Array.isArray(r.blocks)) return r._mig === 3 ? r : migrate(r);
   r.blocks = [newBlock('cover', { showDate: r.showDate !== false }), newBlock('chem', { rows: r.chem || clone(CUSTOM_DEF.chem), showDate: r.showDate !== false }),
     newBlock('sign', { techs: r.techs || [...CUSTOM_DEF.techs], showSign: false }),
     newBlock('sections', { items: r.sections || clone(CUSTOM_DEF.sections) }), newBlock('photos', { photos: r.photos || [], title: cfg.photoTitle || CUSTOM_DEF.photoTitle })];
@@ -179,7 +179,7 @@ function piecesSections(b) {
   const cl = esc(C('client')); const out = [{ k: 'h', h: bHead(b.title) }];
   const rk = n => RISK[+n] ? `<span class="rk ${RISK[+n].cls}">ความเสี่ยง${RISK[+n].label}</span>` : '';
   const withRisk = b.items.filter(s => RISK[+s.risk]);
-  if (b.showRiskTable !== false && withRisk.length) out.push({ h: `<table class="xct xrk"><tr><th style="width:34px">ข้อ</th><th style="width:120px">ชนิดสัตว์พาหะ</th><th>ระดับความเสี่ยง · Risk Level</th><th style="width:250px">ความหมาย</th></tr>${b.items.map((s, i) => RISK[+s.risk] ? `<tr><td class="c">${i + 1}</td><td><b>${esc(s.pest || '-')}</b></td><td><div class="rbar">${[1, 2, 3, 4].map(n => `<i class="${n <= +s.risk ? RISK[+s.risk].cls : ''}"></i>`).join('')}${rk(s.risk)}</div></td><td class="nt">${esc(RISK[+s.risk].desc)}</td></tr>` : '').join('')}</table><div class="xlegend">ระดับความเสี่ยง: ต่ำ = ไม่พบตัว/ร่องรอย · ปานกลาง = พบร่องรอยหรือพบเล็กน้อย · สูง = พบชัดเจนหลายจุด · สูงมาก = ระบาด/เสี่ยงปนเปื้อน</div>` });
+  if (b.showRiskTable !== false && withRisk.length) out.push({ h: `<table class="xct xrk"><tr><th style="width:34px">ข้อ</th><th style="width:96px">สัตว์พาหะ</th><th style="width:170px">หัวข้อการตรวจ</th><th>ระดับความเสี่ยง · Risk Level</th><th style="width:150px">ความหมาย</th></tr>${b.items.map((s, i) => RISK[+s.risk] ? `<tr><td class="c">${i + 1}</td><td><b>${esc(s.pest || '-')}</b></td><td class="nt">${esc((KINDS[s.kind] || KINDS.area).label)}${s.area ? `<br><small>${esc(s.area)}</small>` : ''}</td><td><div class="rbar">${[1, 2, 3, 4].map(n => `<i class="${n <= +s.risk ? RISK[+s.risk].cls : ''}"></i>`).join('')}${rk(s.risk)}</div></td><td class="nt">${esc(RISK[+s.risk].desc)}</td></tr>` : '').join('')}</table><div class="xlegend">ระดับความเสี่ยง: ต่ำ = ไม่พบตัว/ร่องรอย · ปานกลาง = พบร่องรอยหรือพบเล็กน้อย · สูง = พบชัดเจนหลายจุด · สูงมาก = ระบาด/เสี่ยงปนเปื้อน</div>` });
   b.items.forEach((s, i) => {
     out.push({ k: 'h', h: `<div class="xs-t"><span class="no">${i + 1}</span><span style="flex:1">${esc(s.title)}</span>${b.showRisk !== false ? rk(s.risk) : ''}</div>` });
     if ((s.finding || '').trim()) out.push({ h: `<div class="xs-f"><span class="lab">ผลการตรวจสอบ</span><div>${nl(s.finding)}</div></div>` });
@@ -355,10 +355,12 @@ function editorOf(b) {
     ${b.items.map((s, j) => `<div class="sec" data-s="${j}"><div class="row"><b>ข้อ ${j + 1}</b><input type="text" data-f="title" value="${esc(s.title)}" style="flex:1;border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-weight:700">
     <button class="btn sm" data-smv="-1">▲</button><button class="btn sm" data-smv="1">▼</button><button class="btn sm del" data-sdel>ลบข้อนี้</button></div>
     <div class="row rkrow"><label>สัตว์พาหะ <select data-sp>${(s.pest && !pl.includes(s.pest) ? [s.pest, ...pl] : pl).map(p => `<option ${p === s.pest ? 'selected' : ''}>${esc(p)}</option>`).join('')}${s.pest ? '' : '<option selected value="">— เลือก —</option>'}</select></label>
-    <span>ระดับความเสี่ยง</span>${[1, 2, 3, 4].map(n => `<button class="rkb ${RISK[n].cls} ${+s.risk === n ? 'on' : ''}" data-rk="${n}" title="${esc(RISK[n].desc)}">${RISK[n].label}</button>`).join('')}<span class="hint" data-rkh>${RISK[+s.risk] ? esc(RISK[+s.risk].desc) : 'ยังไม่ได้เลือกระดับ'}</span></div>
+    <label>หัวข้อการตรวจ <select data-sk>${kindsFor(s.pest).map(k => `<option value="${k.id}" ${k.id === (s.kind || 'area') ? 'selected' : ''}>${esc(k.label)}</option>`).join('')}</select></label>
+    <label>พื้นที่ <input data-sa list="dlArea" value="${esc(s.area || 'ภายในอาคาร')}" style="width:170px"></label></div><div class="row rkrow"><span>ระดับความเสี่ยง</span>${[1, 2, 3, 4].map(n => `<button class="rkb ${RISK[n].cls} ${+s.risk === n ? 'on' : ''}" data-rk="${n}" title="${esc(RISK[n].desc)}">${RISK[n].label}</button>`).join('')}<span class="hint" data-rkh>${RISK[+s.risk] ? esc(RISK[+s.risk].desc) : 'ยังไม่ได้เลือกระดับ'}</span></div>
     <label class="f" style="margin-top:8px">ผลการตรวจสอบ<textarea data-f="finding" rows="3">${esc(s.finding)}</textarea></label>
     <div class="grid2" style="margin-top:8px"><label class="f">ข้อเสนอแนะ โดย บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด (บรรทัดละ 1 ข้อ)<textarea data-l="adv" rows="4">${esc((s.adv || []).join('\n'))}</textarea></label>
     <label class="f">ข้อเสนอแนะ โดย ${esc(C('client') || 'ลูกค้า')} (บรรทัดละ 1 ข้อ)<textarea data-l="cli" rows="4">${esc((s.cli || []).join('\n'))}</textarea></label></div></div>`).join('')}
+    <datalist id="dlArea">${AREAS.map(a => `<option value="${esc(a)}">`).join('')}</datalist>
     <div class="row"><button class="btn sm" data-x="add">+ เพิ่มหัวข้อ</button><button class="btn sm" data-x="reset">สร้างใหม่ตามแมลงในสัญญา (ข้อความตั้งต้น)</button></div>`; }
   if (b.type === 'text') return `<label class="f">เนื้อหา (เว้นบรรทัดว่างเพื่อขึ้นย่อหน้าใหม่)<textarea data-t="body" rows="6">${esc(b.body || '')}</textarea></label>`;
   if (b.type === 'sign') return `<label class="f">รายชื่อผู้เข้าทำบริการ (บรรทัดละ 1 คน)<textarea data-techs rows="4">${esc((b.techs || []).join('\n'))}</textarea></label>`;
@@ -419,16 +421,19 @@ function bindEditor(box, b) {
     q('[data-s]').forEach(sb => { const j = +sb.dataset.s, s = b.items[j];
       sb.querySelectorAll('[data-f]').forEach(e => e.oninput = () => { s[e.dataset.f] = e.value; markDirty(); });
       sb.querySelectorAll('[data-l]').forEach(e => e.oninput = () => { s[e.dataset.l] = lines(e.value); markDirty(); });
-      const autoTxt = () => { const a = adviceOf(s.pest, s.risk || 1); return a.finding + a.adv.join() + a.cli.join(); };
+      const autoTxt = () => { const a = adviceOf(s.pest, s.risk || 1, s.kind, s.area); return a.finding + a.adv.join() + a.cli.join(); };
       const edited = () => (s.finding || '') + (s.adv || []).join() + (s.cli || []).join() !== s._auto && ((s.finding || '').trim() || (s.adv || []).length);
-      const apply = (keepTitle) => { const a = adviceOf(s.pest, s.risk || 1); if (!keepTitle) s.title = a.title; s.finding = a.finding; s.adv = a.adv; s.cli = a.cli; s._auto = autoTxt(); markDirty(); re(); };
+      const apply = (keepTitle) => { const a = adviceOf(s.pest, s.risk || 1, s.kind, s.area); if (!keepTitle) s.title = a.title; s.finding = a.finding; s.adv = a.adv; s.cli = a.cli; s._auto = autoTxt(); markDirty(); re(); };
       const ask = (fn) => { if (!s.pest) { markDirty(); re(); return; } if (!edited()) return fn(); const bar = sb.querySelector('[data-rkh]'); bar.innerHTML = '<b style="color:#b54708">ข้อความถูกแก้ไขไว้ — </b><button class="btn sm pri" data-ok>แทนที่ด้วยข้อความตามระดับ</button> <button class="btn sm" data-no>คงข้อความเดิม</button>'; bar.querySelector('[data-ok]').onclick = fn; bar.querySelector('[data-no]').onclick = () => { markDirty(); re(); }; };
-      sb.querySelector('[data-sp]').onchange = e => { s.pest = e.target.value; ask(() => apply(false)); };
+      const retitle = () => { s.title = titleOf(s.pest, s.kind, s.area); sb.querySelector('[data-f=title]').value = s.title; };
+      sb.querySelector('[data-sp]').onchange = e => { s.pest = e.target.value; if (!kindsFor(s.pest).some(k => k.id === s.kind)) s.kind = 'area'; retitle(); ask(() => apply(false)); };
+      sb.querySelector('[data-sk]').onchange = e => { s.kind = e.target.value; retitle(); ask(() => apply(false)); };
+      const sa = sb.querySelector('[data-sa]'); sa.onchange = () => { s.area = sa.value.trim() || 'ภายในอาคาร'; retitle(); ask(() => apply(false)); };
       sb.querySelectorAll('[data-rk]').forEach(x => x.onclick = () => { s.risk = +x.dataset.rk; sb.querySelectorAll('[data-rk]').forEach(y => y.classList.toggle('on', y === x)); ask(() => apply(true)); });
       sb.querySelectorAll('[data-smv]').forEach(x => x.onclick = () => { const k = j + +x.dataset.smv; if (k < 0 || k >= b.items.length) return; [b.items[j], b.items[k]] = [b.items[k], b.items[j]]; markDirty(); re(); });
       const d = sb.querySelector('[data-sdel]'); d.onclick = () => { if (!d.dataset.sure) { d.dataset.sure = 1; d.textContent = 'กดอีกครั้งเพื่อลบ'; return; } b.items.splice(j, 1); markDirty(); re(); }; });
     const mk = p => { const o = mkSection(p, 1); o._auto = o.finding + o.adv.join() + o.cli.join(); return o; };
-    q('[data-x]').forEach(x => x.onclick = () => { if (x.dataset.x === 'add') b.items.push({ title: 'สรุปผลการตรวจเช็ค … พื้นที่ภายในอาคาร', pest: '', risk: 0, finding: '', adv: [], cli: [] });
+    q('[data-x]').forEach(x => x.onclick = () => { if (x.dataset.x === 'add') b.items.push({ title: 'สรุปผลการตรวจเช็ค … พื้นที่ภายในอาคาร', pest: '', risk: 0, kind: 'area', area: 'ภายในอาคาร', finding: '', adv: [], cli: [] });
       if (x.dataset.x === 'fill') cpests().filter(p => !b.items.some(s => s.pest === p)).forEach(p => b.items.push(mk(p)));
       if (x.dataset.x === 'reset') { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = 'แทนที่ข้อความทั้งหมด? กดอีกครั้ง'; return; } b.items = cpests().map(mk); } markDirty(); re(); });
   }

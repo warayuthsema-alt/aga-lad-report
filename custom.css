@@ -147,7 +147,7 @@ table.xct.xrk td{height:30px}table.xct.xrk td.c{text-align:center}
 .rbar{display:flex;align-items:center;gap:3px}.rbar i{display:block;width:26px;height:9px;border-radius:2px;background:#e4ebe7}.rbar i.k1,.rbar i.k2,.rbar i.k3,.rbar i.k4{background:var(--rk)}.rbar .rk{margin-left:8px}
 table.xct.sm{font-size:10.5px}table.xct.sm td{padding:4px 5px;line-height:1.3}table.xct.sm th{padding:5px 5px;font-size:10.5px}
 table.xct td.rt{white-space:normal}
-.rkrow{margin-top:8px;gap:6px;align-items:center;flex-wrap:wrap}.rkrow select{border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
+.rkrow{margin-top:8px;gap:6px;align-items:center;flex-wrap:wrap}.rkrow input,.rkrow select{border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
 .rkb{font:inherit;font-size:13px;font-weight:700;padding:5px 14px;border-radius:999px;border:1.5px solid var(--rk);background:#fff;color:var(--rk);cursor:pointer}.rkb.on{background:var(--rk);color:#fff}
 table.ed.chemed select{width:100%;border:1px solid var(--line);border-radius:6px;padding:6px;font:inherit;font-size:13px;background:#fff}
 .pill.ok{background:#e3f4ea;color:#1f7a45}

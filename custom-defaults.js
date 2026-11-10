@@ -22,7 +22,7 @@ const CUSTOM_DEF = {
     chemRow('หนู', 'โบมาดิโอการ์ด'), { pest: 'หนู', name: 'กระดานกาวดักหนู', active: '-', ratio: '-', method: 'วางอุปกรณ์', used: true, note: '' },
     chemRow('ยุง', 'เฟนโดน่า 10 เอสซี')
   ],
-  sections: [mkSection('ปลวก', 1), mkSection('มด', 1), mkSection('แมลงสาบ', 3), mkSection('หนู', 2), mkSection('ยุง', 1)],
+  sections: [mkSection('ปลวก', 1), mkSection('มด', 1), mkSection('แมลงสาบ', 3, 'crst'), mkSection('หนู', 2, 'glue'), mkSection('ยุง', 1)],
   photoTitle: 'รูปภาพการเข้าทำบริการตรวจเช็คและสเปรย์เคมี'
 };
 
