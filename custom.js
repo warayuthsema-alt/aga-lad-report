@@ -69,73 +69,83 @@ async function uploadImg(blob) {
 const LOGO = 'img/logo.png';
 function pageCover(r) {
   const ct = (C('contracts') || []).filter(Boolean);
-  return { o: 'P', name: 'หน้าปก', html: `<div class="pg P cov th"><div class="cv-bar"></div><img class="cv-logo" src="${LOGO}"><div class="cv-body">
-  <div class="cv-t">รายงานการปฏิบัติงานกำจัดแมลงและสัตว์พาหะ</div><div class="cv-s" style="font-size:24px">${esc(C('pestsLine'))}</div>
-  <div class="cv-t" style="margin-top:34px;font-size:27px">${esc(C('client'))}</div>
-  ${ct.map(c => `<div class="cv-s">เลขที่สัญญา ${esc(c)}</div>`).join('')}
-  <div class="cv-s" style="margin-top:6px">เดือน ${esc(mName(curKey()))}</div>
-  <div class="cv-s" style="margin-top:24px;font-size:19px">จัดทำโดย</div><div class="cv-s" style="font-size:19px">${esc(C('preparer'))}</div><div class="cv-s3">${esc(C('preparerTitle'))}</div></div>
-  <div class="cv-wave2"></div><div class="cv-wave"></div><div class="cv-band"><div class="cv-aipm">Advance<br>Integrated<br>Pest Management</div><div class="cv-tel">02 704 5333</div>
-  <div class="cv-foot"><b>Advance Group Asia Co.,Ltd | บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด</b><br>234/9 ถนนเสรีไทย แขวงคันนายาว เขตคันนายาว กรุงเทพมหานคร 10230 · โทร 02-704-5333 · แฟกซ์ 02-704-5353<br>callcenter@advancegroupasia.com · www.advancegroupasia.com</div></div></div>` };
+  return { o: 'P', cover: true, name: 'หน้าปก', html: `<div class="pg P xc">
+  <div class="xc-top"></div><img class="xc-logo" src="${LOGO}">
+  <div class="xc-kicker">SERVICE REPORT · รายงานประจำเดือน</div>
+  <div class="xc-title">รายงานการปฏิบัติงาน<br>กำจัดแมลงและสัตว์พาหะ</div>
+  <div class="xc-pests">${esc(C('pestsLine'))}</div><div class="xc-rule"></div>
+  <div class="xc-card"><div class="xc-lab">จัดทำให้</div><div class="xc-client">${esc(C('client'))}</div>
+  <table class="xc-meta">${ct.length ? `<tr><td>เลขที่สัญญา</td><td>${esc(ct.join(', '))}</td></tr>` : ''}<tr><td>ประจำเดือน</td><td>${esc(mName(curKey()))}</td></tr><tr><td>วันที่ทำบริการ</td><td>${esc(dLong(r.svcDate))}</td></tr><tr><td>จัดทำโดย</td><td>${esc(C('preparer'))}${C('preparerTitle') ? `<br><span>${esc(C('preparerTitle'))}</span>` : ''}</td></tr></table></div>
+  <div class="xc-band"><div><b>Advance Integrated Pest Management</b><br>บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด · Advance Group Asia Co.,Ltd.<br>234/9 ถนนเสรีไทย แขวงคันนายาว เขตคันนายาว กรุงเทพมหานคร 10230</div><div class="xc-tel">02 704 5333<br><span>callcenter@advancegroupasia.com · www.advancegroupasia.com</span></div></div></div>` };
 }
+function xHead(title) { return `<div class="xh"><img src="${LOGO}"><div class="xh-r"><b>บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด</b><span>Advance Group Asia Co.,Ltd.</span></div></div>
+  <div class="xt"><div><b>${esc(title)}</b><span>${esc(C('client'))}</span></div><div class="xt-m">${esc(mName(curKey()))}</div></div>`; }
+const xFoot = () => `<div class="xf"><span>บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด · โทร 02-704-5333 · www.advancegroupasia.com</span><span class="pno"></span></div>`;
 function pageChem(r) {
   const rows = r.chem.filter(c => (c.name || '').trim());
   const grp = []; rows.forEach(c => { const g = grp[grp.length - 1]; if (g && g.p === (c.pest || '')) g.items.push(c); else grp.push({ p: c.pest || '', items: [c] }); });
-  const body = grp.map(g => g.items.map((c, i) => `<tr>${i === 0 ? `<td class="pc" rowspan="${g.items.length}">${nl(g.p.replace(/\s*\/\s*/g, '\n'))}</td>` : ''}<td class="nm"><span class="ck ${c.used ? 'on' : ''}"></span>${esc(c.name)}</td><td>${esc(c.note)}</td></tr>`).join('')).join('');
-  return { o: 'P', name: 'Chemicals used report', html: `<div class="pg P cu">
-  <div class="cu-hd"><img src="${LOGO}"><b>CHEMICALS USED REPORT</b></div>
-  <div class="cu-l"><b>บริการ ณ ${esc(C('client'))}</b><br><b>วันที่ทำบริการ / Service Date:&nbsp; ${esc(dLong(r.svcDate))}</b></div>
-  <table class="cu-t"><tr><th style="width:150px">ชนิดของแมลง</th><th style="width:295px">ชื่อการค้าของสารเคมี<br><br>Trade Name of Chemicals</th><th>หมายเหตุ</th></tr>${body}</table>
-  <div class="cu-tech"><u>รายชื่อผู้เข้าทำบริการ</u><div>${r.techs.map((t, i) => `<div class="ln">${i + 1}.${esc(t)}</div>`).join('')}</div></div></div>` };
+  const body = grp.map((g, gi) => g.items.map((c, i) => `<tr class="${gi % 2 ? 'z' : ''}">${i === 0 ? `<td class="pc" rowspan="${g.items.length}">${nl(g.p.replace(/\s*\/\s*/g, '\n'))}</td>` : ''}<td><span class="ck ${c.used ? 'on' : ''}"></span>${esc(c.name)}</td><td class="nt">${esc(c.note)}</td></tr>`).join('')).join('');
+  const ct = (C('contracts') || []).filter(Boolean);
+  return { o: 'P', name: 'รายงานการใช้สารเคมี', html: `<div class="pg P xp">${xHead('รายงานการใช้สารเคมี · Chemicals Used Report')}<div class="xb">
+  <div class="xi"><div><span>สถานที่ให้บริการ</span><b>${esc(C('client'))}</b></div><div><span>วันที่ทำบริการ / Service Date</span><b>${esc(dLong(r.svcDate))}</b></div>
+  ${ct.length ? `<div><span>เลขที่สัญญา</span><b>${esc(ct.join(', '))}</b></div>` : ''}<div><span>ผู้จัดทำรายงาน</span><b>${esc(C('preparer'))}</b></div></div>
+  <table class="xct"><tr><th style="width:150px">ชนิดของแมลง</th><th>ชื่อการค้าของสารเคมี<br><small>Trade Name of Chemicals</small></th><th style="width:170px">หมายเหตุ</th></tr>${body}</table>
+  <div class="xlegend"><span class="ck on"></span> = สารเคมี/อุปกรณ์ที่ใช้ในการบริการครั้งนี้</div>
+  <div class="xtech"><div class="xs-h">รายชื่อผู้เข้าทำบริการ</div><ol>${r.techs.map(t => `<li>${esc(t)}</li>`).join('')}</ol></div>
+  <div class="xsign"><div><div class="ln"></div>ผู้จัดทำรายงาน<br><b>${esc(C('preparer'))}</b><br>${esc(C('preparerTitle'))}</div><div><div class="ln"></div>ผู้รับรายงาน<br><b>${esc(C('client'))}</b><br>วันที่ ........ / ........ / ........</div></div>
+  </div>${xFoot()}</div>` };
 }
-function sumHead() { return `<div class="cs-hd"><img src="${LOGO}"><div><b>บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด</b><b>Advance Group Asia Co.,Ltd.</b><b>${esc(C('client'))}</b></div></div>`; }
 function sectionBlocks(r) {
-  const cl = esc(C('client'));
-  const out = [];
+  const cl = esc(C('client')); const out = [];
   r.sections.forEach((s, i) => {
-    out.push(`<div class="cs-b cs-t">${i + 1}. ${esc(s.title)}</div><div class="cs-b cs-f"><u>ผลการตรวจสอบ</u><div>${nl(s.finding)}</div></div>`);
-    out.push(`<div class="cs-b cs-a"><u>การปรับปรุงแก้ไข/ข้อเสนอแนะ</u></div><div class="cs-b cs-by"><u>โดย บริษัท แอ๊ดวานซ์ กรุ๊ป เอเชีย จำกัด</u></div>`);
-    (s.adv || []).filter(x => x.trim()).forEach(x => out.push(`<div class="cs-b cs-li">${nl(x)}</div>`));
-    if ((s.cli || []).some(x => x.trim())) { out.push(`<div class="cs-b cs-by"><u>โดย ${cl}</u></div>`); s.cli.filter(x => x.trim()).forEach(x => out.push(`<div class="cs-b cs-li">${nl(x)}</div>`)); }
-    out.push('<div class="cs-b cs-gap"></div>');
+    out.push(`<div class="xs-t"><span class="no">${i + 1}</span>${esc(s.title)}</div><div class="xs-f"><span class="lab">ผลการตรวจสอบ</span><div>${nl(s.finding)}</div></div>`);
+    out.push(`<div class="xs-a">การปรับปรุงแก้ไข / ข้อเสนอแนะ</div><div class="xs-by adv">โดย บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด</div>`);
+    (s.adv || []).filter(x => x.trim()).forEach(x => out.push(`<div class="xs-li adv">${nl(x)}</div>`));
+    if ((s.cli || []).some(x => x.trim())) { out.push(`<div class="xs-by cli">โดย ${cl}</div>`); s.cli.filter(x => x.trim()).forEach(x => out.push(`<div class="xs-li cli">${nl(x)}</div>`)); }
+    out.push('<div class="xs-gap"></div>');
   });
   return out;
 }
 function pagesSummary(r) {
   /* จัดหน้าอัตโนมัติ: วัดความสูงจริงของแต่ละย่อหน้า แล้วขึ้นหน้าใหม่เมื่อเต็ม (ไม่ให้หัวข้อค้างท้ายหน้า) */
   const blocks = sectionBlocks(r); if (!blocks.length) return [];
-  const root = $('#measure'); root.innerHTML = `<div class="pg P cs"><div class="cs-body" style="position:static;width:670px"></div></div>`; const body = root.querySelector('.cs-body');
+  const root = $('#measure'); root.innerHTML = `<div class="pg P xp"><div class="xb" style="position:static;width:${794 - 2 * 56}px"></div></div>`; const body = root.querySelector('.xb');
   const hOf = b => { body.innerHTML = b; return body.getBoundingClientRect().height + 1; };
-  const AVAIL = 1123 - 190 - 56; const isHead = b => !/cs-li|cs-gap/.test(b);
+  const AVAIL = 1123 - 188 - 70; const isHead = b => !/xs-li|xs-gap/.test(b);
   const pages = []; let curr = [], h = 0;
   for (const b of blocks) {
     const bh = hOf(b);
     if (h + bh > AVAIL && curr.length) {
       const carry = []; while (curr.length > 1 && isHead(curr[curr.length - 1]) && carry.length < 4) carry.unshift(curr.pop());
-      while (curr.length && /cs-gap/.test(curr[curr.length - 1])) curr.pop();
+      while (curr.length && /xs-gap/.test(curr[curr.length - 1])) curr.pop();
       pages.push(curr); curr = carry; h = carry.reduce((t, x) => t + hOf(x), 0);
     }
-    if (/cs-gap/.test(b) && !curr.length) continue;
+    if (/xs-gap/.test(b) && !curr.length) continue;
     curr.push(b); h += bh;
   }
   if (curr.length) pages.push(curr);
   root.innerHTML = '';
-  return pages.map((p, i) => ({ o: 'P', name: 'สรุปผลการตรวจ หน้า ' + (i + 1), html: `<div class="pg P cs">${sumHead()}<div class="cs-body">${p.join('')}</div></div>` }));
+  return pages.map((p, i) => ({ o: 'P', name: 'สรุปผลการตรวจ หน้า ' + (i + 1), html: `<div class="pg P xp">${xHead('สรุปผลการตรวจสอบและข้อเสนอแนะ')}<div class="xb">${p.join('')}</div>${xFoot()}</div>` }));
 }
 function pagesPhotos(r) {
-  const ph = r.photos.filter(p => p.id && !p.id.startsWith('up:') || mem[p.id]); const out = [];
-  const W = 654, GAP = 14, CW = (W - 2 * GAP) / 3, MAXH = 286, MINH = 150;
+  const ph = r.photos.filter(p => p.id && (!p.id.startsWith('up:') || mem[p.id])); const out = [];
+  const W = 794 - 2 * 56, GAP = 12, CW = (W - 2 * GAP) / 3, MAXH = 262, MINH = 140;
   for (let i = 0; i < ph.length; i += PER_PAGE) {
     const chunk = ph.slice(i, i + PER_PAGE); const rows = [];
     for (let j = 0; j < chunk.length; j += 3) rows.push(chunk.slice(j, j + 3));
     const html = rows.map(row => { const rh = Math.round(Math.max(MINH, Math.min(MAXH, Math.max(...row.map(p => CW * (p.h || 4) / (p.w || 3))))));
-      return `<div class="ph-row" style="height:${rh}px">${row.map(p => { const ar = (p.w || 3) / (p.h || 4); let w = CW, h = CW / ar; if (h > rh) { h = rh; w = rh * ar; }
-        return `<div class="ph-c" style="width:${CW}px;height:${rh}px"><div style="width:${w}px;height:${h}px;background-image:url('${esc(imgURL(p.id))}')"></div></div>`; }).join('')}</div>`; }).join('');
-    out.push({ o: 'P', name: 'รูปภาพ หน้า ' + (out.length + 1), html: `<div class="pg P cp"><div class="cp-t">${esc(C('photoTitle'))}</div><div class="cp-g">${html}</div></div>` });
+      return `<div class="xr" style="height:${rh}px">${row.map((p, k) => { const ar = (p.w || 3) / (p.h || 4); let w = CW, h = CW / ar; if (h > rh) { h = rh; w = rh * ar; }
+        const n = i + rows.indexOf(row) * 3 + k + 1;
+        return `<div class="xcell" style="width:${CW}px;height:${rh}px"><div class="xim" style="width:${w}px;height:${h}px;background-image:url('${esc(imgURL(p.id))}')"><span>${n}</span></div></div>`; }).join('')}</div>`; }).join('');
+    out.push({ o: 'P', name: 'รูปภาพ หน้า ' + (out.length + 1), html: `<div class="pg P xp">${xHead(C('photoTitle'))}<div class="xb xg">${html}</div>${xFoot()}</div>` });
   }
   return out;
 }
-function buildPages() { const r = cur(); return [pageCover(r), pageChem(r), ...pagesSummary(r), ...pagesPhotos(r)]; }
+function buildPages() {
+  const r = cur(); const P = [pageCover(r), pageChem(r), ...pagesSummary(r), ...pagesPhotos(r)];
+  const N = P.length - 1; P.forEach((p, i) => { if (i) p.html = p.html.replace('<span class="pno"></span>', `<span class="pno">หน้า ${i} / ${N}</span>`); });
+  return P;
+}
 
 /* ───────── UI ───────── */
 const TABS = [['info', '1 ข้อมูลลูกค้า & วันบริการ'], ['chem', '2 สารเคมี'], ['sec', '3 ผลการตรวจ & คำแนะนำ'], ['photo', '4 รูปภาพ'], ['out', '5 ตรวจ & ดาวน์โหลด PDF']];
@@ -236,8 +246,14 @@ function renderOut() {
   const el = $('#t-out');
   el.innerHTML = `<div class="card"><h2>ตรวจก่อนดาวน์โหลด</h2><ul class="checks">${issues().map(([c, t]) => `<li class="${c}">${c === 'ok' ? '✓' : c === 'warn' ? '!' : '•'} ${esc(t)}</li>`).join('')}</ul></div>
   <div class="card"><h2>ดาวน์โหลด PDF</h2><div class="row"><button class="btn pri" id="btnPdf">ดาวน์โหลด PDF ทั้งเล่ม</button><span class="hint" id="pdfInfo"></span></div><div class="prog" id="prog" style="display:none"><i></i></div><p class="hint" id="pdfMsg"></p></div>
+  <div class="card danger"><h2>ลบรายงาน</h2><p class="hint">ลบรายงานเดือน ${esc(mName(curKey()))} ของ ${esc(C('client'))} ออกจากระบบ (ลบแล้วกู้คืนไม่ได้)</p><button class="btn del" id="btnDelRep">ลบรายงานเดือนนี้</button></div>
   <div class="card"><div class="row"><h2 style="margin:0;flex:1">ตัวอย่างทุกหน้า</h2><button class="btn sm" id="btnPreview">สร้างตัวอย่าง</button></div><div id="preview"><p class="hint">กด "สร้างตัวอย่าง" เพื่อดูทุกหน้า</p></div></div>`;
   $('#btnPreview').onclick = renderPreview; $('#btnPdf').onclick = downloadPdf;
+  const dr = $('#btnDelRep'); dr.onclick = async () => {
+    if (!dr.dataset.sure) { dr.dataset.sure = 1; dr.textContent = 'ยืนยันลบรายงานเดือน ' + mName(curKey()) + ' — กดอีกครั้ง'; setTimeout(() => { if (dr.isConnected) { delete dr.dataset.sure; dr.textContent = 'ลบรายงานเดือนนี้'; } }, 5000); return; }
+    dr.disabled = true; const k = curKey(); pending.delete(k); clearTimeout(saveTimer);
+    try { await rpc('lad_custom_delete_report', { p_site: SITE, p_month: k }); delete reports[k]; delete STATUS[k]; toast('ลบรายงานเดือน ' + mName(k) + ' แล้ว'); renderAll(); goTab('info'); setStatus('ลบแล้ว'); }
+    catch (e) { toast('ลบไม่สำเร็จ: ' + e.message); dr.disabled = false; } };
 }
 function renderPreview() {
   const pages = buildPages(); const box = $('#preview'); const sc = Math.min(1, (box.clientWidth || 900) / 900) * 0.7;
@@ -281,11 +297,14 @@ async function showList() {
   document.body.classList.add('listmode'); $('#appTitle').textContent = 'รายงานฉบับ Custom · เลือกลูกค้า'; setStatus('');
   const box = $('#list'); box.innerHTML = '<p class="hint">กำลังโหลด…</p>';
   let L = []; try { L = await rpc('lad_custom_list') || []; } catch (e) { box.innerHTML = '<p class="hint">โหลดรายชื่อไม่สำเร็จ</p>'; return; }
-  box.innerHTML = `<div class="card"><h2>ลูกค้าที่ใช้รายงานฉบับ Custom</h2><div class="clist">${L.map(c => `<a class="ctile" href="#c=${esc(c.id)}"><b>${esc(c.name)}</b><span class="hint">${c.last ? 'รายงานล่าสุด: ' + esc(mName(c.last)) : 'ยังไม่มีรายงาน'}</span></a>`).join('') || '<p class="hint">ยังไม่มีลูกค้า</p>'}</div></div>
+  box.innerHTML = `<div class="card"><h2>ลูกค้าที่ใช้รายงานฉบับ Custom</h2><div class="clist">${L.map(c => `<div class="ctile"><a href="#c=${esc(c.id)}"><b>${esc(c.name)}</b><span class="hint">${c.last ? 'รายงานล่าสุด: ' + esc(mName(c.last)) : 'ยังไม่มีรายงาน'}</span></a><button class="btn sm del" data-delc="${esc(c.id)}" data-n="${esc(c.name)}">ลบลูกค้า</button></div>`).join('') || '<p class="hint">ยังไม่มีลูกค้า</p>'}</div></div>
   <div class="card"><h2>เพิ่มลูกค้าใหม่</h2><div class="row"><input id="newName" placeholder="ชื่อบริษัทลูกค้า เช่น บริษัท ตัวอย่าง จำกัด" style="flex:1;border:1px solid var(--line);border-radius:6px;padding:8px 10px"><button class="btn pri" id="btnNew">+ เพิ่มลูกค้า</button></div>
   <p class="hint">ลูกค้าใหม่จะได้รายชื่อสารเคมีและข้อความสรุปตั้งต้นตามรายงานตัวอย่าง แล้วแก้ได้ทั้งหมด</p></div>`;
   const go = async () => { const n = $('#newName').value.trim(); if (!n) { toast('ใส่ชื่อลูกค้าก่อน'); return; } try { const id = await rpc('lad_custom_create', { p_name: n }); location.hash = 'c=' + id; } catch (e) { toast(e.message); } };
-  $('#btnNew').onclick = go; $('#newName').onkeydown = e => { if (e.key === 'Enter') go(); };
+  $('#btnNew').onclick = go;
+  box.querySelectorAll('[data-delc]').forEach(b => b.onclick = async () => {
+    if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'ลบลูกค้าและรายงานทั้งหมด? กดอีกครั้ง'; setTimeout(() => { if (b.isConnected) { delete b.dataset.sure; b.textContent = 'ลบลูกค้า'; } }, 5000); return; }
+    b.disabled = true; try { await rpc('lad_custom_delete', { p_site: b.dataset.delc }); toast('ลบ ' + b.dataset.n + ' แล้ว'); showList(); } catch (e) { toast('ลบไม่สำเร็จ: ' + e.message); b.disabled = false; } }); $('#newName').onkeydown = e => { if (e.key === 'Enter') go(); };
 }
 /* ───────── boot ───────── */
 function buildSelectors() {
