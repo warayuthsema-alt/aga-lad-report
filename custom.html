@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>รายงานฉบับ Custom · Advance Group Asia</title>
+<link rel="stylesheet" href="qc.css">
+<link rel="stylesheet" href="custom.css">
+</head>
+<body class="listmode">
+<header class="top">
+<a class="btn sm" href="./" style="background:#fff;border:0;text-decoration:none">← หน้ารวมรายงาน</a>
+<button class="btn sm edonly" id="btnList" style="background:#fff;border:0;color:#02472f">เปลี่ยนลูกค้า</button>
+<img src="img/logo.png" alt="" style="height:34px;background:#fff;border-radius:6px;padding:3px 6px"><h1 id="appTitle">รายงานฉบับ Custom</h1>
+<label class="edonly">ปี <select id="selYear"></select></label>
+<label class="edonly">เดือน <select id="selMonth"></select></label>
+<div id="status"></div>
+</header>
+<nav class="tabs edonly" id="tabs"></nav>
+<main><div id="list" class="listonly"></div></main>
+<div id="exportRoot"></div><div id="measure"></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="fileIn" accept="image/*" multiple hidden>
+<script src="lib/html-to-image.js"></script>
+<script src="lib/jspdf.umd.min.js"></script>
+<script src="custom-defaults.js"></script>
+<script src="custom.js"></script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+body.listmode .edonly, body.listmode section.tab{display:none!important}
+body:not(.listmode) .listonly{display:none}
+.clist{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.ctile{display:flex;flex-direction:column;gap:4px;border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;text-decoration:none;color:inherit;background:#fff}
+.ctile:hover{border-color:#9bc7b0}
+.drop{border:2px dashed #c3cad6;border-radius:10px;padding:16px;text-align:center;color:var(--mut);cursor:pointer;background:#fafbfc}
+.drop.ov{border-color:var(--acc);background:#fff6f1}
+.thumbs .th{background-size:cover;background-position:center}
+.thumbs .th .ctl{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;background:rgba(0,0,0,.55)}
+.thumbs .th .ctl button{position:static;background:none;border:0;color:#fff;cursor:pointer;padding:2px 7px;font-size:14px}
+.thumbs .th .idx{position:absolute;top:3px;left:4px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;border-radius:4px;padding:0 5px}
+.thumbs .th.up{opacity:.5}
+#measure{position:fixed;left:-30000px;top:0}
+/* chemicals page */
+.pg.cu .cu-hd{display:flex;align-items:flex-end;gap:120px;padding:66px 0 0 100px}
+.pg.cu .cu-hd img{height:56px}.pg.cu .cu-hd b{font-family:'Times New Roman',serif;font-size:12px;padding-bottom:4px}
+.pg.cu .cu-l{margin:24px 0 0 100px;font-size:12px;line-height:2}
+.pg.cu table.cu-t{border-collapse:collapse;margin:22px 0 0 100px;width:578px;font-size:12px}
+.pg.cu .cu-t th{border:1.5px solid #000;height:84px;font-weight:700}
+.pg.cu .cu-t td{border:1.5px solid #000;height:25px;padding:0 6px}
+.pg.cu .cu-t td.pc{text-align:center;white-space:pre-line;line-height:2.6}
+.pg.cu .ck{display:inline-block;width:14px;height:14px;border:1.3px solid #000;margin-right:12px;vertical-align:-2px;position:relative}
+.pg.cu .ck.on::after{content:'';position:absolute;left:3px;top:-3px;width:6px;height:12px;border:solid #0a8a2a;border-width:0 2.6px 2.6px 0;transform:rotate(38deg)}
+.pg.cu .cu-tech{display:flex;gap:44px;margin:28px 0 0 100px;font-size:12px}
+.pg.cu .cu-tech .ln{width:292px;border-bottom:1px solid #000;padding:6px 0 2px;margin-bottom:6px}
+/* summary pages */
+.pg.cs .cs-hd{display:flex;align-items:flex-start;padding:70px 70px 0 70px}
+.pg.cs .cs-hd img{height:62px;margin-top:6px}
+.pg.cs .cs-hd div{flex:1;text-align:right;display:flex;flex-direction:column;gap:14px;font-size:14px;font-family:'Times New Roman','Sarabun',serif}
+.pg.cs .cs-body{position:absolute;left:62px;right:62px;top:190px;font-size:12.5px;line-height:1.75}
+.cs-b{break-inside:avoid}
+.cs-t{font-weight:700;margin-top:6px}
+.cs-f{display:flex;gap:16px;padding-left:16px}.cs-f u{font-weight:700;white-space:nowrap}
+.cs-a{font-weight:700;padding-left:16px;margin-top:10px}
+.cs-by{padding-left:96px;margin-top:6px}
+.cs-li{padding-left:96px}
+.cs-gap{height:12px}
+/* photo pages */
+.pg.cp .cp-t{text-align:center;font-weight:700;font-size:13px;padding-top:62px}
+.pg.cp .cp-g{position:absolute;left:70px;right:70px;top:110px;display:flex;flex-direction:column;gap:14px}
+.ph-row{display:flex;gap:14px}
+.ph-c{display:flex;align-items:center;justify-content:center}
+.ph-c>div{background:#eee center/cover no-repeat}
