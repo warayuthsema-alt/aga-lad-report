@@ -154,7 +154,12 @@ table.ed.chemed select{width:100%;border:1px solid var(--line);border-radius:6px
 #cpests{margin-top:6px}#cpests input[type=text],#cpAdd{border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
 
 .libh{font-size:14px;margin:16px 0 8px;color:var(--g)}
-.lays{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}.lay-i{display:flex;flex-direction:column;gap:4px;width:170px}.lay-i input{border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:inherit;font-size:12.5px}
+.lays{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}.lay-i{display:flex;flex-direction:column;gap:4px;width:220px}.lay-i input{border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:inherit;font-size:12.5px}
 .xi-cap{position:absolute;left:56px;right:56px;text-align:center;font-size:12px;color:#475467}
 .lays.thumbs{display:flex}
 .lay-i .th{position:relative;border-radius:6px;border:1px solid var(--line);background-size:contain!important;background-repeat:no-repeat;background-color:#fff}
+.xi-rev{margin-left:auto;text-align:right;font-size:11px;font-weight:700;color:var(--g);border:1.5px solid var(--g);border-radius:6px;padding:3px 9px;line-height:1.35}.xi-rev span{font-weight:400;color:#475467;font-size:10px}
+.xi-t>.xi-rev{position:static}.xp>.xi-rev{position:absolute;right:46px;top:30px}
+.xi-chg{position:absolute;left:46px;right:46px;top:88px;font-size:10.5px;color:#b54708;text-align:right}
+.lay-rev{font-size:12px;color:#475467}.lay-later{margin-top:10px;padding:8px 12px;background:#fff4e5;border:1px solid #f5c27a;border-radius:8px;font-size:13px}
+.lay-h{margin-top:12px}.lay-h summary{cursor:pointer;font-weight:700;color:var(--g);font-size:13.5px}.lay-h table{margin-top:8px}

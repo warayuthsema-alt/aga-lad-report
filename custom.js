@@ -213,15 +213,16 @@ function pagesPhotos(b) {
   return out;
 }
 /* หน้าแผนผัง/Layout: 1 รูปต่อหน้า รูปแนวนอน → หน้าแนวนอนอัตโนมัติ */
-function pagesLayout(list, title, showTitle) {
+function pagesLayout(list, title, showTitle, showRev) {
   return (list || []).filter(x => x && x.id && (!x.id.startsWith('up:') || mem[x.id])).map((x, i, all) => {
     const L = (x.w || 4) > (x.h || 3); const Hh = L ? 794 : 1123; const st = showTitle !== false; const top = st ? 108 : 36; const cap = (x.cap || '').trim(); const cb = cap ? 30 : 0;
-    const t = title + (all.length > 1 ? ` (${i + 1}/${all.length})` : '');
-    return { o: L ? 'L' : 'P', name: t, html: `<div class="pg ${L ? 'L' : 'P'} xp">${st ? `<div class="xi-t"><img src="${LOGO}"><div><b>${esc(t)}</b><span>${esc(C('client'))} · ${esc(mName(curKey()))}</span></div></div>` : ''}
+    const t = title + (all.length > 1 ? ` (${i + 1}/${all.length})` : ''); const rv = showRev !== false && (x.rev || x.eff) ? `<div class="xi-rev">Layout Rev.${x.rev || 1}${x.eff ? `<br><span>มีผลตั้งแต่ ${esc(mName(x.eff))}</span>` : ''}</div>` : '';
+    const chg = showRev !== false && (x.note || '').trim() ? `<div class="xi-chg">ปรับปรุงล่าสุด: ${esc(x.note)}</div>` : '';
+    return { o: L ? 'L' : 'P', name: t, html: `<div class="pg ${L ? 'L' : 'P'} xp">${st ? `<div class="xi-t"><img src="${LOGO}"><div><b>${esc(t)}</b><span>${esc(C('client'))} · ${esc(mName(curKey()))}</span></div>${rv}</div>` : rv}${chg}
     <div class="xi-img" style="top:${top}px;height:${Hh - top - 56 - cb}px;background-image:url('${esc(imgURL(x.id))}')"></div>${cap ? `<div class="xi-cap" style="top:${Hh - 56 - cb + 4}px">${esc(cap)}</div>` : ''}${xFoot()}</div>` };
   });
 }
-const pageImage = b => pagesLayout(b.layouts, b.title, b.showTitle);
+const pageImage = b => pagesLayout(b.layouts, b.title, b.showTitle, b.showRev);
 /* ตัวจัดหน้า: วัดความสูงจริงของทุกชิ้น ไหลต่อเนื่องข้ามบล็อก ขึ้นหน้าใหม่เมื่อเต็ม หรือเมื่อบล็อกตั้ง "เริ่มหน้าใหม่" */
 function flowPages(group) {
   const root = $('#measure'); root.innerHTML = `<div class="pg P xp"><div class="xb" style="position:static;display:flow-root;width:${794 - 2 * 56}px"></div></div>`; const body = root.querySelector('.xb');
@@ -251,7 +252,7 @@ function buildPages() {
     const pieces = b.type === 'chem' ? piecesChem(b, r) : b.type === 'stations' ? piecesStations(b) : b.type === 'sections' ? piecesSections(b) : b.type === 'text' ? piecesText(b) : b.type === 'sign' ? piecesSign(b) : [];
     pieces.forEach(p => p.bt = b.title);
     if (pieces.length) flow.push({ pieces, newPage: !!b.newPage });
-    if (b.type === 'stations' && b.showLayout !== false && (b.layouts || []).length) { flushFlow(); P.push(...pagesLayout(b.layouts, 'แผนผังตำแหน่ง · ' + b.title, true)); }
+    if (b.type === 'stations' && b.showLayout !== false && (b.layouts || []).length) { flushFlow(); P.push(...pagesLayout(b.layouts, 'แผนผังตำแหน่ง · ' + b.title, true, b.showRev)); }
   });
   flushFlow();
   const N = P.filter(p => !p.cover).length; let n = 0; P.forEach(p => { if (!p.cover) p.html = p.html.replace('<span class="pno"></span>', `<span class="pno">หน้า ${++n} / ${N}</span>`); });
@@ -298,9 +299,9 @@ function blockOptions(b) {
     <label class="f">หัวกราฟ<input data-t="chartTitle" value="${esc(b.chartTitle || '')}"></label>
     <label class="f">แถวสรุปและกราฟ<select data-t="agg"><option value="sum" ${b.agg !== 'avg' ? 'selected' : ''}>ผลรวม (เช่น จำนวนตัว / ก้อน)</option><option value="avg" ${b.agg === 'avg' ? 'selected' : ''}>ค่าเฉลี่ยต่อจุด (เช่น % การกินเหยื่อ)</option></select></label>
     <label class="f">เส้น Alert limit ในกราฟ (เว้นว่าง = ไม่แสดง)<input type="number" data-t="alert" value="${b.alert ?? ''}"></label><label class="f">เส้น Action limit ในกราฟ<input type="number" data-t="action" value="${b.action ?? ''}"></label></div>
-    <div class="opts">${tog('showFound', 'แสดงคอลัมน์ พบ/ไม่พบ', b.showFound)}${tog('showRemark', 'แสดงคอลัมน์หมายเหตุ', b.showRemark)}${tog('showTotal', 'แสดงแถวรวม', b.showTotal)}${tog('chart', 'แสดงกราฟรายเดือน', b.chart)}${tog('showLayout', 'แสดงหน้าแผนผัง Layout ต่อท้ายตาราง', b.showLayout !== false)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
+    <div class="opts">${tog('showFound', 'แสดงคอลัมน์ พบ/ไม่พบ', b.showFound)}${tog('showRemark', 'แสดงคอลัมน์หมายเหตุ', b.showRemark)}${tog('showTotal', 'แสดงแถวรวม', b.showTotal)}${tog('chart', 'แสดงกราฟรายเดือน', b.chart)}${tog('showLayout', 'แสดงหน้าแผนผัง Layout ต่อท้ายตาราง', b.showLayout !== false)}${tog('showRev', 'แสดงเลขฉบับแก้ไข Layout (Rev.)', b.showRev !== false)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
   if (b.type === 'photos') return `<div class="opts"><label class="opt">จำนวนรูปต่อหน้า <select data-t="perPage">${[4, 6, 9].map(n => `<option ${+b.perPage === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>`;
-  if (b.type === 'image') return `<div class="opts">${tog('showTitle', 'แสดงหัวข้อด้านบนรูป', b.showTitle !== false)}</div>`;
+  if (b.type === 'image') return `<div class="opts">${tog('showTitle', 'แสดงหัวข้อด้านบนรูป', b.showTitle !== false)}${tog('showRev', 'แสดงเลขฉบับแก้ไข (Rev.) และวันที่มีผล', b.showRev !== false)}</div>`;
   if (b.type === 'sign') return `<div class="opts">${tog('showTechs', 'แสดงรายชื่อผู้เข้าทำบริการ', b.showTechs !== false)}${tog('showSign', 'แสดงช่องลงนาม', b.showSign !== false)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
   return `<div class="opts">${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
 }
@@ -379,19 +380,41 @@ function editorOf(b) {
   if (b.type === 'image') return layoutEd(b, 'แนบแผนผัง / Layout / เอกสาร');
   return '';
 }
+function laterKeys(b) { return Object.keys(reports).filter(k => k > curKey() && !reports[k]._new && (upgrade(reports[k]).blocks || []).some(x => x.id === b.id)).sort(); }
 function layoutEd(b, intro) {
-  const L = b.layouts || [];
-  return `<div class="lay"><div class="drop" data-ld>📎 ${intro} — ลากไฟล์มาวาง หรือ <u>กดเพื่อเลือก</u> (รูปภาพ หรือไฟล์ PDF หลายหน้าได้)<br><span class="hint">${L.length} แผ่น · 1 แผ่นต่อหน้า · แนวนอนเป็นหน้าแนวนอนอัตโนมัติ · คัดลอกไปเดือนถัดไปด้วย</span></div>
-  ${L.length ? `<div class="lays thumbs">${L.map((x, j) => `<div class="lay-i"><div class="th ${x.id.startsWith('up:') ? 'up' : ''}" style="width:${x.w >= x.h ? 160 : 113}px;height:${x.w >= x.h ? 113 : 160}px;background-image:url('${esc(imgURL(x.id))}')"><span class="idx">${j + 1}</span><div class="ctl"><button data-lmv="-1" data-j="${j}">◀</button><button data-lrm="${j}">✕</button><button data-lmv="1" data-j="${j}">▶</button></div></div>
-  <input data-lcap="${j}" value="${esc(x.cap || '')}" placeholder="คำอธิบายใต้แผนผัง (ถ้ามี)"></div>`).join('')}</div>` : ''}</div>`;
+  const L = b.layouts || [], H = b.layoutHist || [];
+  const card = (x, j) => `<div class="lay-i"><div class="th ${x.id.startsWith('up:') ? 'up' : ''}" style="width:${x.w >= x.h ? 160 : 113}px;height:${x.w >= x.h ? 113 : 160}px;background-image:url('${esc(imgURL(x.id))}')"><span class="idx">${j + 1}</span><div class="ctl"><button data-lmv="-1" data-j="${j}">◀</button><button data-lrm="${j}">✕</button><button data-lmv="1" data-j="${j}">▶</button></div></div>
+    <div class="lay-rev"><b>Rev.${x.rev || 1}</b> · มีผล ${esc(mShort(x.eff || curKey()))}</div>
+    <input data-lcap="${j}" value="${esc(x.cap || '')}" placeholder="คำอธิบายใต้แผนผัง เช่น ชั้น 1">
+    <button class="btn sm" data-lrep="${j}" title="อัปโหลดเลเอ้าใหม่แทนแผ่นนี้ เก็บแผ่นเดิมไว้ในประวัติ">🔄 เปลี่ยนเลเอ้าแผ่นนี้</button>
+    ${(x.rev || 1) > 1 ? `<input data-lnote="${j}" value="${esc(x.note || '')}" placeholder="สิ่งที่ปรับเปลี่ยน เช่น เพิ่มจุดที่ 6">` : ''}</div>`;
+  const later = laterKeys(b);
+  return `<div class="lay"><div class="drop" data-ld>📎 ${intro} — ลากไฟล์มาวาง หรือ <u>กดเพื่อเลือก</u> (รูปภาพ หรือไฟล์ PDF หลายหน้าได้)<br><span class="hint">${L.length} แผ่น · 1 แผ่นต่อหน้า · แนวนอนเป็นหน้าแนวนอนอัตโนมัติ · ใช้ต่อในเดือนถัดไป · ถ้าหน้างานเปลี่ยน กด 🔄 เพื่อออกฉบับแก้ไขใหม่ (Rev.)</span></div>
+  ${L.length ? `<div class="lays thumbs">${L.map(card).join('')}</div>` : ''}
+  ${b._layChanged && later.length ? `<div class="lay-later">เดือนถัดไปที่บันทึกไว้แล้ว (${esc(later.map(mShort).join(', '))}) ยังใช้เลเอ้าชุดเดิม <button class="btn sm pri" data-lsync>ใช้เลเอ้าชุดนี้กับเดือนเหล่านั้นด้วย</button></div>` : ''}
+  ${H.length ? `<details class="lay-h"><summary>ประวัติการปรับเปลี่ยนเลเอ้า (${H.length} ฉบับเดิม)</summary><table class="ed"><tr><th style="width:130px">แผ่นเดิม</th><th>ฉบับ</th><th>ช่วงที่ใช้</th><th>คำอธิบาย / การแก้ไข</th><th style="width:170px"></th></tr>
+    ${H.map((x, k) => `<tr><td><div class="th" style="position:relative;width:${x.w >= x.h ? 120 : 85}px;height:${x.w >= x.h ? 85 : 120}px;background:#fff url('${esc(imgURL(x.id))}') center/contain no-repeat;border:1px solid var(--line)"></div></td><td><b>Rev.${x.rev || 1}</b></td><td>${esc(mShort(x.eff || ''))} – ${esc(mShort(x.until || ''))}</td><td>${esc(x.cap || '')}${x.note ? `<br><span class="hint">${esc(x.note)}</span>` : ''}</td>
+    <td><button class="btn sm" data-lback="${k}">นำกลับมาใช้</button><button class="btn sm del" data-lhdel="${k}">ลบ</button></td></tr>`).join('')}</table></details>` : ''}</div>`;
 }
 function bindLayout(box, b, re) {
   const d = box.querySelector('[data-ld]'); if (!d) return; const fi = $('#fileIn'); b.layouts = b.layouts || [];
-  const take = async fs => { fs = await expandPdf(fs); fs = fs.filter(f => f.type.startsWith('image/')); if (fs.length) uploadMany(fs, b.layouts, re, 2600); };
-  d.onclick = () => { fi.multiple = true; fi.accept = 'image/*,application/pdf'; fi.onchange = () => { const fs = [...fi.files]; fi.value = ''; fi.accept = 'image/*'; take(fs); }; fi.click(); };
+  const eff = curKey(); b.layoutHist = b.layoutHist || [];
+  const take = async fs => { fs = await expandPdf(fs); fs = fs.filter(f => f.type.startsWith('image/')); if (!fs.length) return; const n0 = b.layouts.length; uploadMany(fs, b.layouts, () => { b.layouts.slice(n0).forEach(x => { if (!x.rev) { x.rev = 1; x.eff = eff; } }); b._layChanged = true; re(); }, 2600); };
+  const pick = (multi, fn) => { fi.multiple = multi; fi.accept = 'image/*,application/pdf'; fi.onchange = async () => { const fs = [...fi.files]; fi.value = ''; fi.accept = 'image/*'; fn(fs); }; fi.click(); };
+  d.onclick = () => pick(true, take);
+  box.querySelectorAll('[data-lrep]').forEach(x => x.onclick = () => pick(false, async fs => { fs = (await expandPdf(fs.slice(0, 1))).filter(f => f.type.startsWith('image/')).slice(0, 1); if (!fs.length) return;
+    const j = +x.dataset.lrep, old = b.layouts[j]; const tmp = []; x.textContent = 'กำลังอัปโหลด…';
+    uploadMany(fs, tmp, () => { const nw = tmp[0]; if (!nw || nw.id.startsWith('up:')) return; const i = b.layouts.indexOf(old); if (i < 0) return;
+      b.layoutHist.unshift(Object.assign({}, old, { until: eff, eff: old.eff || eff }));
+      b.layouts[i] = { id: nw.id, w: nw.w, h: nw.h, cap: old.cap || '', rev: (old.rev || 1) + 1, eff, note: '' }; b._layChanged = true; markDirty(); re(); toast('ออกเลเอ้าฉบับแก้ไข Rev.' + b.layouts[i].rev + ' แล้ว · ใส่สิ่งที่ปรับเปลี่ยนได้ใต้รูป'); }, 2600); }));
+  box.querySelectorAll('[data-lnote]').forEach(x => x.oninput = () => { b.layouts[+x.dataset.lnote].note = x.value; markDirty(); });
+  box.querySelectorAll('[data-lback]').forEach(x => x.onclick = () => { const k = +x.dataset.lback, h = b.layoutHist[k]; const rev = Math.max(0, ...b.layouts.map(y => y.rev || 1), ...b.layoutHist.map(y => y.rev || 1)) + 1;
+    b.layouts.push({ id: h.id, w: h.w, h: h.h, cap: h.cap || '', rev, eff, note: `นำเลเอ้า Rev.${h.rev || 1} กลับมาใช้` }); b._layChanged = true; markDirty(); re(); toast('นำกลับมาเป็นแผ่นที่ ' + b.layouts.length + ' (ลบแผ่นปัจจุบันที่ไม่ใช้ได้)'); });
+  box.querySelectorAll('[data-lhdel]').forEach(x => x.onclick = () => { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = 'ยืนยันลบ'; return; } b.layoutHist.splice(+x.dataset.lhdel, 1); markDirty(); re(); });
+  const sy = box.querySelector('[data-lsync]'); if (sy) sy.onclick = () => { const ks = laterKeys(b); ks.forEach(k => { const bb = upgrade(reports[k]).blocks.find(y => y.id === b.id); if (bb) { bb.layouts = clone(b.layouts); bb.layoutHist = clone(b.layoutHist); pending.add(k); } }); delete b._layChanged; markDirty(); re(); toast('อัปเดตเลเอ้า ' + ks.length + ' เดือนแล้ว'); };
   d.ondragover = e => { e.preventDefault(); d.classList.add('ov'); }; d.ondragleave = () => d.classList.remove('ov'); d.ondrop = e => { e.preventDefault(); d.classList.remove('ov'); take([...e.dataTransfer.files]); };
   box.querySelectorAll('[data-lmv]').forEach(x => x.onclick = () => { const j = +x.dataset.j, k = j + +x.dataset.lmv; if (k < 0 || k >= b.layouts.length) return; [b.layouts[j], b.layouts[k]] = [b.layouts[k], b.layouts[j]]; markDirty(); re(); });
-  box.querySelectorAll('[data-lrm]').forEach(x => x.onclick = () => { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = '?'; return; } b.layouts.splice(+x.dataset.lrm, 1); markDirty(); re(); });
+  box.querySelectorAll('[data-lrm]').forEach(x => x.onclick = () => { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = '?'; return; } const o = b.layouts.splice(+x.dataset.lrm, 1)[0]; if (o && o.id && !o.id.startsWith('up:') && (o.eff || '') < eff) b.layoutHist.unshift(Object.assign({}, o, { until: eff, note: (o.note ? o.note + ' · ' : '') + 'ยกเลิกแผ่นนี้' })); b._layChanged = true; markDirty(); re(); });
   box.querySelectorAll('[data-lcap]').forEach(x => x.oninput = () => { b.layouts[+x.dataset.lcap].cap = x.value; markDirty(); });
 }
 /* PDF → รูปภาพทีละหน้า (โหลด pdf.js เมื่อใช้ครั้งแรก) */
@@ -579,7 +602,8 @@ async function showList() {
 function buildSelectors() {
   const ys = $('#selYear'); ys.innerHTML = ''; for (let y = 2026; y <= 2029; y++) ys.add(new Option(y + 543, y)); ys.value = Y;
   const ms = $('#selMonth'); ms.innerHTML = ''; TH_M.forEach((t, i) => ms.add(new Option(t, i + 1))); ms.value = M;
-  ys.onchange = async () => { await flush(); Y = +ys.value; renderAll(); }; ms.onchange = async () => { await flush(); M = +ms.value; renderAll(); };
+  const fresh = () => Object.keys(reports).forEach(k => { if (reports[k]._new && !pending.has(k)) delete reports[k]; }); /* เดือนที่ยังไม่แตะ → สร้างใหม่จากเดือนล่าสุด */
+  ys.onchange = async () => { await flush(); fresh(); Y = +ys.value; renderAll(); }; ms.onchange = async () => { await flush(); fresh(); M = +ms.value; renderAll(); };
   labelMonths();
 }
 function labelMonths() { const ms = $('#selMonth'); if (!ms) return; [...ms.options].forEach((o, i) => { const k = mk(Y, i + 1); const x = reports[k]; o.textContent = TH_M[i] + (STATUS[k] || (x && !x._new) ? ' · มีข้อมูล' : ''); }); }
