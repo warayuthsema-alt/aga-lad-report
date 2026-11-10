@@ -152,3 +152,5 @@ table.xct td.rt{white-space:normal}
 table.ed.chemed select{width:100%;border:1px solid var(--line);border-radius:6px;padding:6px;font:inherit;font-size:13px;background:#fff}
 .pill.ok{background:#e3f4ea;color:#1f7a45}
 #cpests{margin-top:6px}#cpests input[type=text],#cpAdd{border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
+
+.libh{font-size:14px;margin:16px 0 8px;color:var(--g)}

@@ -157,14 +157,15 @@ function piecesChem(b, r) {
   flushT(); out.push({ h: `<div class="xlegend"><span class="ck on"></span> = สารเคมี/อุปกรณ์ที่ใช้ในการบริการครั้งนี้</div>` });
   return out;
 }
-function stTotalOf(b) { return sum(b.rows.map(r => sum(r.v))); }
+const r1 = v => Math.round(v * 10) / 10;
+function stTotalOf(b) { const t = sum(b.rows.map(r => sum(r.v))); return b.agg === 'avg' ? (b.rows.length ? r1(t / b.rows.length) : 0) : t; }
 function yearKeys() { const ys = +C('yearStart') || 1; const fy = M >= ys ? Y : Y - 1; return Array.from({ length: 12 }, (_, i) => addMonths(mk(fy, ys), i)); }
 function piecesStations(b) {
   const out = [{ k: 'h', h: bHead(b.title) }]; const cols = b.cols.length ? b.cols : ['จำนวน']; const multi = cols.length > 1; const f = b.showFound && b.found;
   const hd = `<tr><th style="width:34px">ที่</th><th>สถานที่ / ตำแหน่ง</th>${f ? `<th style="width:70px">${esc(b.found[0])}</th><th style="width:70px">${esc(b.found[1])}</th>` : ''}${cols.map(c => `<th style="width:${multi ? 66 : 92}px">${esc(c)}</th>`).join('')}${multi ? '<th style="width:60px">รวม</th>' : ''}${b.showRemark ? '<th style="width:120px">หมายเหตุ</th>' : ''}</tr>`;
   const row = (x, i) => { const t = sum(x.v); return `<tr class="${i % 2 ? 'z' : ''}${t > 0 ? ' hit' : ''}"><td class="c">${i + 1}</td><td>${esc(x.loc)}</td>${f ? `<td class="c">${t > 0 ? '✓' : ''}</td><td class="c">${t > 0 ? '' : '✓'}</td>` : ''}${x.v.map(v => `<td class="c">${v}</td>`).join('')}${multi ? `<td class="c b">${t}</td>` : ''}${b.showRemark ? `<td class="nt">${esc(x.rem)}</td>` : ''}</tr>`; };
-  const tot = cols.map((_, j) => sum(b.rows.map(x => x.v[j])));
-  const totRow = b.showTotal ? `<tr class="tot"><td colspan="${2 + (f ? 2 : 0)}">รวม (พบ ${b.rows.filter(x => sum(x.v) > 0).length} จาก ${b.rows.length} จุด)</td>${tot.map(v => `<td class="c">${v}</td>`).join('')}${multi ? `<td class="c">${sum(tot)}</td>` : ''}${b.showRemark ? '<td></td>' : ''}</tr>` : '';
+  const tot = cols.map((_, j) => { const t = sum(b.rows.map(x => x.v[j])); return b.agg === 'avg' ? (b.rows.length ? r1(t / b.rows.length) : 0) : t; });
+  const totRow = b.showTotal ? `<tr class="tot"><td colspan="${2 + (f ? 2 : 0)}">${b.agg === 'avg' ? 'เฉลี่ย' : 'รวม'} (พบ ${b.rows.filter(x => sum(x.v) > 0).length} จาก ${b.rows.length} จุด)</td>${tot.map(v => `<td class="c">${v}</td>`).join('')}${multi ? `<td class="c">${sum(tot)}</td>` : ''}${b.showRemark ? '<td></td>' : ''}</tr>` : '';
   for (let i = 0; i < b.rows.length; i += 22) { const part = b.rows.slice(i, i + 22).map((x, j) => row(x, i + j)).join(''); out.push({ h: `<table class="xct st">${hd}${part}${i + 22 >= b.rows.length ? totRow : ''}</table>` }); }
   if (!b.rows.length) out.push({ h: '<p class="xnote">— ยังไม่มีจุด —</p>' });
   if (b.chart) {
@@ -290,6 +291,7 @@ function blockOptions(b) {
     <label class="f">หน่วย (แสดงในกราฟ)<input data-t="unit" value="${esc(b.unit || '')}"></label>
     <label class="f">หัวคอลัมน์ พบ / ไม่พบ (คั่นด้วย ,)<input data-t="foundTxt" value="${esc((b.found || ['พบ', 'ไม่พบ']).join(', '))}"></label>
     <label class="f">หัวกราฟ<input data-t="chartTitle" value="${esc(b.chartTitle || '')}"></label>
+    <label class="f">แถวสรุปและกราฟ<select data-t="agg"><option value="sum" ${b.agg !== 'avg' ? 'selected' : ''}>ผลรวม (เช่น จำนวนตัว / ก้อน)</option><option value="avg" ${b.agg === 'avg' ? 'selected' : ''}>ค่าเฉลี่ยต่อจุด (เช่น % การกินเหยื่อ)</option></select></label>
     <label class="f">เส้น Alert limit ในกราฟ (เว้นว่าง = ไม่แสดง)<input type="number" data-t="alert" value="${b.alert ?? ''}"></label><label class="f">เส้น Action limit ในกราฟ<input type="number" data-t="action" value="${b.action ?? ''}"></label></div>
     <div class="opts">${tog('showFound', 'แสดงคอลัมน์ พบ/ไม่พบ', b.showFound)}${tog('showRemark', 'แสดงคอลัมน์หมายเหตุ', b.showRemark)}${tog('showTotal', 'แสดงแถวรวม', b.showTotal)}${tog('chart', 'แสดงกราฟรายเดือน', b.chart)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
   if (b.type === 'photos') return `<div class="opts"><label class="opt">จำนวนรูปต่อหน้า <select data-t="perPage">${[4, 6, 9].map(n => `<option ${+b.perPage === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>`;
@@ -306,7 +308,8 @@ function renderLayout() {
   <button class="btn sm" data-a="up" ${i ? '' : 'disabled'}>▲</button><button class="btn sm" data-a="dn" ${i < r.blocks.length - 1 ? '' : 'disabled'}>▼</button>
   <button class="btn sm eye ${b.hidden ? 'off' : ''}" data-a="eye">${b.hidden ? '🚫 ซ่อนอยู่' : '👁 แสดง'}</button><button class="btn sm" data-a="dup" title="ทำสำเนาบล็อก">⧉</button><button class="btn sm del" data-a="del">ลบ</button></div>
   <div class="blk-o">${blockOptions(b)}</div></div>`).join('')}</div></div>
-  <div class="card"><h2>+ เพิ่มบล็อก</h2><div class="lib">${Object.entries(BLOCK_TYPES).map(([k, t]) => `<button class="libb" data-add="${k}"><span>${t.icon}</span><b>${esc(t.label)}</b><small>${esc(t.desc)}</small></button>`).join('')}</div></div>
+  <div class="card"><h2>+ เพิ่มบล็อก</h2><div class="lib">${Object.entries(BLOCK_TYPES).map(([k, t]) => `<button class="libb" data-add="${k}"><span>${t.icon}</span><b>${esc(t.label)}</b><small>${esc(k === 'stations' ? 'ตารางเปล่า กำหนดคอลัมน์เอง' : t.desc)}</small></button>`).join('')}</div>
+  <h3 class="libh">ตารางสถานีสำเร็จรูป <span class="hint">(กดเพื่อเพิ่ม แก้ชื่อจุด/คอลัมน์ได้ภายหลัง)</span></h3><div class="lib">${Object.entries(STATION_TPL).map(([k, t]) => `<button class="libb" data-add="stations" data-tpl="${k}"><span>${t.icon}</span><b>${esc(t.label)}</b><small>${esc(t.desc)}</small></button>`).join('')}</div></div>
   <div class="card"><h2>เริ่มจากแบบฟอร์มตั้งต้น</h2><p class="hint">แทนที่โครงรายงานของเดือนนี้ทั้งหมดด้วยแบบที่เลือก (กดสองครั้งเพื่อยืนยัน) และใช้เป็นแบบเริ่มต้นของลูกค้ารายนี้</p>
   <div class="row">${Object.entries(PRESETS).map(([k, p]) => `<button class="btn" data-pre="${k}">${esc(p.label)}</button>`).join('')}</div></div>${navRow('layout')}`;
   el.querySelectorAll('.blk').forEach(box => { const i = +box.dataset.i, b = r.blocks[i];
@@ -323,7 +326,7 @@ function renderLayout() {
       else if (k === 'alert' || k === 'action') b[k] = v === '' ? null : +v; else if (k === 'perPage') b.perPage = +v; else b[k] = v;
       markDirty(); }; e.oninput = f; e.onchange = f; });
   });
-  el.querySelectorAll('[data-add]').forEach(x => x.onclick = () => { r.blocks.push(newBlock(x.dataset.add)); markDirty(); renderLayout(); toast('เพิ่ม "' + BLOCK_TYPES[x.dataset.add].label + '" แล้ว · กรอกข้อมูลในแท็บ 3'); });
+  el.querySelectorAll('[data-add]').forEach(x => x.onclick = () => { const t = x.dataset.tpl && STATION_TPL[x.dataset.tpl]; r.blocks.push(t ? t.make({ newPage: true }) : newBlock(x.dataset.add)); markDirty(); renderLayout(); toast('เพิ่ม "' + (t ? t.label : BLOCK_TYPES[x.dataset.add].label) + '" แล้ว · กรอกข้อมูลในแท็บ 3'); });
   el.querySelectorAll('[data-pre]').forEach(x => x.onclick = () => { if (!x.dataset.sure) { el.querySelectorAll('[data-pre]').forEach(y => { if (y.dataset.sure) { delete y.dataset.sure; y.textContent = PRESETS[y.dataset.pre].label; } }); x.dataset.sure = 1; x.textContent = 'แทนที่โครงทั้งหมด? กดอีกครั้ง'; return; }
     r.blocks = PRESETS[x.dataset.pre].make(); cfg.preset = x.dataset.pre; cfgDirty(); markDirty(); renderLayout(); toast('ใช้แบบฟอร์มแล้ว'); });
   bindNav(el);
@@ -398,10 +401,10 @@ function bindEditor(box, b) {
       markDirty(); re(); });
   }
   if (b.type === 'stations') {
-    const upd = () => { const tot = stTotalOf(b); const hit = b.rows.filter(x => sum(x.v) > 0).length; const s = box.querySelector('[data-stat]'); if (s) s.innerHTML = `<span>พบ <b>${hit}</b> / ${b.rows.length} จุด</span><span>รวม <b>${tot}</b> ${esc(b.unit || '')}</span>${b.action != null && tot >= b.action ? '<span class="pill r4">เกิน Action limit</span>' : b.alert != null && tot >= b.alert ? '<span class="pill r3">เกิน Alert limit</span>' : ''}`; };
+    const upd = () => { const tot = stTotalOf(b); const hit = b.rows.filter(x => sum(x.v) > 0).length; const s = box.querySelector('[data-stat]'); if (s) s.innerHTML = `<span>พบ <b>${hit}</b> / ${b.rows.length} จุด</span><span>${b.agg === 'avg' ? 'เฉลี่ย' : 'รวม'} <b>${tot}</b> ${esc(b.unit || '')}</span>${b.action != null && tot >= b.action ? '<span class="pill r4">เกิน Action limit</span>' : b.alert != null && tot >= b.alert ? '<span class="pill r3">เกิน Alert limit</span>' : ''}`; };
     const ins = [...q('input.num')];
     ins.forEach((inp, n) => { inp.onfocus = () => inp.select();
-      inp.oninput = () => { let v = inp.value === '' ? 0 : Math.round(+inp.value); if (isNaN(v) || v < 0) v = 0; const x = b.rows[+inp.dataset.j]; x.v[+inp.dataset.c] = v; inp.closest('tr').classList.toggle('hitrow', sum(x.v) > 0); const t = box.querySelector(`[data-tot="${inp.dataset.j}"] b`); if (t) t.textContent = sum(x.v); upd(); markDirty(); };
+      inp.oninput = () => { let v = inp.value === '' ? 0 : Math.round(+inp.value); if (isNaN(v) || v < 0) v = 0; if (b.max != null && v > b.max) { v = b.max; inp.value = v; } const x = b.rows[+inp.dataset.j]; x.v[+inp.dataset.c] = v; inp.closest('tr').classList.toggle('hitrow', sum(x.v) > 0); const t = box.querySelector(`[data-tot="${inp.dataset.j}"] b`); if (t) t.textContent = sum(x.v); upd(); markDirty(); };
       inp.onblur = () => { if (inp.value === '') inp.value = 0; };
       inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); (ins[n + 1] || inp).focus(); } }; });
     q('[data-loc]').forEach(e => e.oninput = () => { b.rows[+e.dataset.loc].loc = e.value; markDirty(); });
