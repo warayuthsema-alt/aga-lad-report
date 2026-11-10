@@ -1,16 +1,19 @@
-/* รายงานฉบับ Custom — ลูกค้าหลายราย (lad_sites id 'custom-…'), รายงานรายเดือนใน lad_reports */
+/* รายงานฉบับ Custom (ตัวสร้างรายงานแบบบล็อก) — ลูกค้าหลายราย (lad_sites 'custom-…'), รายงานรายเดือนใน lad_reports
+   รายงาน 1 เดือน = รายการบล็อก (หน้าปก / สารเคมี / ตารางสถานี / สรุปผล / ข้อความ / รูป / แผนผัง / ลงนาม) เพิ่ม ซ่อน เรียงลำดับได้อิสระ */
 "use strict";
 const SB = 'https://zhdigumxkjfvrkkmqqpk.supabase.co';
 const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoZGlndW14a2pmdnJra21xcXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjI2NjcsImV4cCI6MjA5Nzc5ODY2N30.NJpFFXX_KYGgICo3WNaevMxjXc0EB9X7rOzOhWXiIK0';
 const BUCKET = 'pest-reports';
 const TH_M = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
-const PER_PAGE = 9;
+const TH_S = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const nl = s => esc(s).replace(/\n/g, '<br>');
 const pad = n => String(n).padStart(2, '0');
 const mk = (y, m) => y + '-' + pad(m);
 const clone = o => JSON.parse(JSON.stringify(o));
+const sum = a => (a || []).reduce((t, v) => t + (+v || 0), 0);
+const lines = v => v.split('\n').map(s => s.trim()).filter(Boolean);
 function toast(t) { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('on'), 2400); }
 function setStatus(t) { $('#status').textContent = t; }
 async function rpc(fn, args) {
@@ -19,28 +22,44 @@ async function rpc(fn, args) {
 }
 const dLong = iso => { if (!iso) return '……………'; const [y, m, d] = iso.split('-').map(Number); return d + ' ' + TH_M[m - 1] + ' ' + (y + 543); };
 const mName = k => { const [y, m] = k.split('-').map(Number); return TH_M[m - 1] + ' ' + (y + 543); };
+const mShort = k => { const [y, m] = k.split('-').map(Number); return TH_S[m - 1] + String(y + 543).slice(-2); };
+function addMonths(k, d) { let [y, m] = k.split('-').map(Number); m += d; while (m > 12) { m -= 12; y++ } while (m < 1) { m += 12; y-- } return mk(y, m); }
 
 /* ───────── state ───────── */
 let SITE = null, cfg = {}, Y, M; const reports = {}; let STATUS = {};
 const curKey = () => mk(Y, M);
 const siteFromHash = () => (location.hash.match(/c=(custom-[a-z0-9]+)/) || [])[1] || null;
+const C = k => cfg[k] ?? CUSTOM_DEF[k];
 
 function prevReport(k) { const ks = Object.keys(reports).filter(x => x < k && !reports[x]._new).sort(); return ks.length ? reports[ks[ks.length - 1]] : null; }
+/* รายงานรุ่นแรก (ก่อนมีระบบบล็อก) → แปลงเป็นบล็อก */
+function upgrade(r) {
+  if (Array.isArray(r.blocks)) return r;
+  r.blocks = [newBlock('cover', { showDate: r.showDate !== false }), newBlock('chem', { rows: r.chem || clone(CUSTOM_DEF.chem), showDate: r.showDate !== false }),
+    newBlock('sign', { techs: r.techs || [...CUSTOM_DEF.techs], showSign: false }),
+    newBlock('sections', { items: r.sections || clone(CUSTOM_DEF.sections) }), newBlock('photos', { photos: r.photos || [], title: cfg.photoTitle || CUSTOM_DEF.photoTitle })];
+  delete r.chem; delete r.techs; delete r.sections; delete r.photos; return r;
+}
+/* เดือนใหม่: คัดลอกโครงรายงานจากเดือนก่อน ล้างตัวเลข/รูป */
 function blank(k) {
   const p = prevReport(k);
-  return { svcDate: '', showDate: !(p && p.showDate === false), techs: clone((p && p.techs) || CUSTOM_DEF.techs), chem: clone((p && p.chem) || CUSTOM_DEF.chem).map(c => ({ ...c, used: c.used !== false })),
-    sections: clone((p && p.sections) || CUSTOM_DEF.sections), photos: [] };
+  if (!p) return { svcDate: '', blocks: PRESETS[cfg.preset || 'standard'].make() };
+  const blocks = clone(upgrade(p).blocks).map(b => {
+    if (b.type === 'stations') b.rows.forEach(r => { r.v = r.v.map(() => 0); r.rem = ''; });
+    if (b.type === 'photos') b.photos = [];
+    return b;
+  });
+  return { svcDate: '', blocks };
 }
-function cur() { const k = curKey(); if (!reports[k]) { reports[k] = blank(k); reports[k]._new = true; } const r = reports[k];
-  r.techs = r.techs || []; r.chem = r.chem || []; r.sections = r.sections || []; r.photos = r.photos || []; return r; }
-const C = k => cfg[k] ?? CUSTOM_DEF[k];
+function cur() { const k = curKey(); if (!reports[k]) { reports[k] = blank(k); reports[k]._new = true; } return upgrade(reports[k]); }
+const vis = r => r.blocks.filter(b => !b.hidden);
 
 let saveTimer = null, saving = false; const pending = new Set();
 function markDirty() { const k = curKey(); pending.add(k); if (reports[k]) delete reports[k]._new; setStatus('ยังไม่บันทึก…'); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 900); }
 async function flush() {
   if (saving) { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 600); return; }
   saving = true;
-  try { for (const k of [...pending]) { pending.delete(k); const r = clone(reports[k]); delete r._new; r.updatedAt = new Date().toISOString();
+  try { for (const k of [...pending]) { pending.delete(k); if (!reports[k]) continue; const r = clone(reports[k]); delete r._new; r.updatedAt = new Date().toISOString();
       try { await rpc('lad_save_report', { p_site: SITE, p_month: k, p_data: r, p_send: false }); } catch (e) { pending.add(k); setStatus('บันทึกไม่สำเร็จ จะลองใหม่'); saveTimer = setTimeout(flush, 4000); return; } }
     setStatus('บันทึกแล้ว ✓'); loadStatusQuiet();
   } finally { saving = false; }
@@ -64,95 +83,164 @@ async function uploadImg(blob) {
   const r = await fetch(SB + '/storage/v1/object/' + BUCKET + '/' + path, { method: 'POST', headers: { apikey: ANON, Authorization: 'Bearer ' + ANON, 'Content-Type': 'image/jpeg' }, body: blob });
   if (!r.ok) throw new Error('อัปโหลดไม่สำเร็จ (' + r.status + ')'); return path;
 }
+async function uploadMany(files, list, onEach, max) {
+  const key = curKey(); const tmp = [];
+  for (const f of files) { const id = 'up:' + Math.random().toString(36).slice(2); mem[id] = URL.createObjectURL(f); const p = { id, w: 3, h: 4 }; list.push(p); tmp.push([p, f]); }
+  onEach(); let n = 0;
+  for (const [p, f] of tmp) { setStatus(`กำลังอัปโหลดรูป ${++n}/${tmp.length}`);
+    try { const s = await shrink(f, max || 1600); p.w = s.w; p.h = s.h; const id = await uploadImg(s.blob); mem[id] = URL.createObjectURL(s.blob); p.id = id; }
+    catch (e) { list.splice(list.indexOf(p), 1); toast('อัปโหลดรูปไม่สำเร็จ: ' + e.message); }
+    if (key === curKey()) onEach(); }
+  markDirty();
+}
 
-/* ───────── report pages ───────── */
+/* ───────── chart ───────── */
+function barChart(o) {
+  const S = 2, c = document.createElement('canvas'); c.width = o.w * S; c.height = o.h * S; const g = c.getContext('2d'); g.scale(S, S);
+  g.fillStyle = '#fff'; g.fillRect(0, 0, o.w, o.h); const F = "'Sarabun',sans-serif";
+  const vals = o.vals.map(v => v == null ? null : +v); const lim = [o.alert, o.action].filter(v => v != null && v !== '');
+  let max = Math.max(1, ...vals.filter(v => v != null), ...lim.map(Number)) * 1.15; const p = Math.pow(10, Math.floor(Math.log10(max))); max = Math.ceil(max / p) * p; const step = max / 5;
+  const L = 40, R = o.w - 14, T = 30, B = o.h - 34;
+  g.fillStyle = '#02472f'; g.font = `bold 12px ${F}`; g.textAlign = 'center'; g.fillText(o.title, o.w / 2, 18);
+  g.font = `10px ${F}`;
+  for (let v = 0; v <= max + 1e-9; v += step) { const y = B - (B - T) * v / max; g.strokeStyle = '#e4ebe7'; g.beginPath(); g.moveTo(L, y); g.lineTo(R, y); g.stroke(); g.fillStyle = '#667085'; g.textAlign = 'right'; g.fillText(Number.isInteger(step) ? String(Math.round(v)) : v.toFixed(1), L - 5, y + 3); }
+  const n = o.labels.length, bw = (R - L) / n;
+  o.labels.forEach((t, i) => { const x = L + bw * (i + .5); g.fillStyle = '#475467'; g.textAlign = 'center'; g.fillText(t, x, B + 14);
+    const v = vals[i]; if (v == null) return; const h = (B - T) * v / max; g.fillStyle = i === o.hi ? '#e0531f' : '#2f7d5b'; g.fillRect(x - bw * .3, B - h, bw * .6, h);
+    if (v > 0 || i === o.hi) { g.fillStyle = '#1d2433'; g.font = `bold 10px ${F}`; g.fillText(String(v), x, B - h - 4); g.font = `10px ${F}`; } });
+  [[o.alert, '#f0a400', 'Alert'], [o.action, '#d92d20', 'Action']].forEach(([v, col, lab]) => { if (v == null || v === '') return; const y = B - (B - T) * v / max; g.strokeStyle = col; g.setLineDash([5, 3]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(L, y); g.lineTo(R, y); g.stroke(); g.setLineDash([]); g.fillStyle = col; g.textAlign = 'right'; g.font = `bold 9.5px ${F}`; g.fillText(lab + ' ' + v, R, y - 3); g.font = `10px ${F}`; });
+  g.strokeStyle = '#98a2b3'; g.lineWidth = 1; g.beginPath(); g.moveTo(L, B); g.lineTo(R, B); g.stroke();
+  return c.toDataURL('image/png');
+}
+
+/* ───────── report page parts ───────── */
 const LOGO = 'img/logo.png';
-function pageCover(r) {
+const REPORT_TITLE = 'รายงานการปฏิบัติงานกำจัดแมลงและสัตว์พาหะ';
+function xHead(title) { return `<div class="xh"><img src="${LOGO}"><div class="xh-r"><b>บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด</b><span>Advance Group Asia Co.,Ltd.</span></div></div>
+  <div class="xt"><div><b>${esc(title)}</b><span>${esc(C('client'))}</span></div><div class="xt-m">${esc(mName(curKey()))}</div></div>`; }
+const xFoot = () => `<div class="xf"><span>บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด · โทร 02-704-5333 · www.advancegroupasia.com</span><span class="pno"></span></div>`;
+const bHead = t => `<div class="xbh">${esc(t)}</div>`;
+function pageCover(b, r) {
   const ct = (C('contracts') || []).filter(Boolean);
   return { o: 'P', cover: true, name: 'หน้าปก', html: `<div class="pg P xc">
   <div class="xc-top"></div><img class="xc-logo" src="${LOGO}">
   <div class="xc-kicker">SERVICE REPORT · รายงานประจำเดือน</div>
-  <div class="xc-title">รายงานการปฏิบัติงาน<br>กำจัดแมลงและสัตว์พาหะ</div>
-  <div class="xc-pests">${esc(C('pestsLine'))}</div><div class="xc-rule"></div>
+  <div class="xc-title">${nl(b.coverTitle || 'รายงานการปฏิบัติงาน\nกำจัดแมลงและสัตว์พาหะ')}</div>
+  ${b.showPests !== false ? `<div class="xc-pests">${esc(C('pestsLine'))}</div>` : ''}<div class="xc-rule"></div>
   <div class="xc-card"><div class="xc-lab">จัดทำให้</div><div class="xc-client">${esc(C('client'))}</div>
-  <table class="xc-meta">${ct.length ? `<tr><td>เลขที่สัญญา</td><td>${esc(ct.join(', '))}</td></tr>` : ''}<tr><td>ประจำเดือน</td><td>${esc(mName(curKey()))}</td></tr>${r.showDate !== false ? `<tr><td>วันที่ทำบริการ</td><td>${esc(dLong(r.svcDate))}</td></tr>` : ''}<tr><td>จัดทำโดย</td><td>${esc(C('preparer'))}${C('preparerTitle') ? `<br><span>${esc(C('preparerTitle'))}</span>` : ''}</td></tr></table></div>
+  <table class="xc-meta">${b.showContract !== false && ct.length ? `<tr><td>เลขที่สัญญา</td><td>${esc(ct.join(', '))}</td></tr>` : ''}<tr><td>ประจำเดือน</td><td>${esc(mName(curKey()))}</td></tr>
+  ${b.showDate !== false ? `<tr><td>วันที่ทำบริการ</td><td>${esc(dLong(r.svcDate))}</td></tr>` : ''}
+  ${b.showPreparer !== false ? `<tr><td>จัดทำโดย</td><td>${esc(C('preparer'))}${C('preparerTitle') ? `<br><span>${esc(C('preparerTitle'))}</span>` : ''}</td></tr>` : ''}</table></div>
   <div class="xc-band"><div><b>Advance Integrated Pest Management</b><br>บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด · Advance Group Asia Co.,Ltd.<br>234/9 ถนนเสรีไทย แขวงคันนายาว เขตคันนายาว กรุงเทพมหานคร 10230</div><div class="xc-tel">02 704 5333<br><span>callcenter@advancegroupasia.com · www.advancegroupasia.com</span></div></div></div>` };
 }
-function xHead(title) { return `<div class="xh"><img src="${LOGO}"><div class="xh-r"><b>บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด</b><span>Advance Group Asia Co.,Ltd.</span></div></div>
-  <div class="xt"><div><b>${esc(title)}</b><span>${esc(C('client'))}</span></div><div class="xt-m">${esc(mName(curKey()))}</div></div>`; }
-const xFoot = () => `<div class="xf"><span>บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด · โทร 02-704-5333 · www.advancegroupasia.com</span><span class="pno"></span></div>`;
-function pageChem(r) {
-  const rows = r.chem.filter(c => (c.name || '').trim());
+/* แต่ละบล็อกแบบ "ไหลต่อเนื่อง" คืนชิ้นส่วน (piece) ให้ตัวจัดหน้า; ชิ้นที่ k:'h' คือหัวข้อ (ไม่ให้ค้างท้ายหน้า) */
+function piecesChem(b, r) {
+  const rows = b.rows.filter(c => (c.name || '').trim()); const out = [{ k: 'h', h: bHead(b.title) }];
+  if (b.showInfo !== false) { const ct = (C('contracts') || []).filter(Boolean);
+    out.push({ h: `<div class="xi"><div><span>สถานที่ให้บริการ</span><b>${esc(C('client'))}</b></div>${b.showDate !== false ? `<div><span>วันที่ทำบริการ / Service Date</span><b>${esc(dLong(r.svcDate))}</b></div>` : ''}${ct.length ? `<div><span>เลขที่สัญญา</span><b>${esc(ct.join(', '))}</b></div>` : ''}<div><span>ผู้จัดทำรายงาน</span><b>${esc(C('preparer'))}</b></div></div>` }); }
   const grp = []; rows.forEach(c => { const g = grp[grp.length - 1]; if (g && g.p === (c.pest || '')) g.items.push(c); else grp.push({ p: c.pest || '', items: [c] }); });
-  const body = grp.map((g, gi) => g.items.map((c, i) => `<tr class="${gi % 2 ? 'z' : ''}">${i === 0 ? `<td class="pc" rowspan="${g.items.length}">${nl(g.p.replace(/\s*\/\s*/g, '\n'))}</td>` : ''}<td><span class="ck ${c.used ? 'on' : ''}"></span>${esc(c.name)}</td><td class="nt">${esc(c.note)}</td></tr>`).join('')).join('');
-  const ct = (C('contracts') || []).filter(Boolean);
-  return { o: 'P', name: 'รายงานการใช้สารเคมี', html: `<div class="pg P xp">${xHead('รายงานการใช้สารเคมี · Chemicals Used Report')}<div class="xb">
-  <div class="xi"><div><span>สถานที่ให้บริการ</span><b>${esc(C('client'))}</b></div>${r.showDate !== false ? `<div><span>วันที่ทำบริการ / Service Date</span><b>${esc(dLong(r.svcDate))}</b></div>` : ''}
-  ${ct.length ? `<div><span>เลขที่สัญญา</span><b>${esc(ct.join(', '))}</b></div>` : ''}<div><span>ผู้จัดทำรายงาน</span><b>${esc(C('preparer'))}</b></div></div>
-  <table class="xct"><tr><th style="width:150px">ชนิดของแมลง</th><th>ชื่อการค้าของสารเคมี<br><small>Trade Name of Chemicals</small></th><th style="width:170px">หมายเหตุ</th></tr>${body}</table>
-  <div class="xlegend"><span class="ck on"></span> = สารเคมี/อุปกรณ์ที่ใช้ในการบริการครั้งนี้</div>
-  <div class="xtech"><div class="xs-h">รายชื่อผู้เข้าทำบริการ</div><ol>${r.techs.map(t => `<li>${esc(t)}</li>`).join('')}</ol></div>
-  <div class="xsign"><div><div class="ln"></div>ผู้จัดทำรายงาน<br><b>${esc(C('preparer'))}</b><br>${esc(C('preparerTitle'))}</div><div><div class="ln"></div>ผู้รับรายงาน<br><b>${esc(C('client'))}</b><br>วันที่ ........ / ........ / ........</div></div>
-  </div>${xFoot()}</div>` };
+  const hd = `<tr><th style="width:150px">ชนิดของแมลง</th><th>ชื่อการค้าของสารเคมี<br><small>Trade Name of Chemicals</small></th>${b.showNote !== false ? '<th style="width:170px">หมายเหตุ</th>' : ''}</tr>`;
+  let chunk = [], n = 0; const flushT = () => { if (chunk.length) out.push({ h: `<table class="xct">${hd}${chunk.join('')}</table>` }); chunk = []; n = 0; };
+  grp.forEach((g, gi) => { if (n + g.items.length > 16) flushT(); chunk.push(g.items.map((c, i) => `<tr class="${gi % 2 ? 'z' : ''}">${i === 0 ? `<td class="pc" rowspan="${g.items.length}">${nl(g.p.replace(/\s*\/\s*/g, '\n'))}</td>` : ''}<td><span class="ck ${c.used ? 'on' : ''}"></span>${esc(c.name)}</td>${b.showNote !== false ? `<td class="nt">${esc(c.note)}</td>` : ''}</tr>`).join('')); n += g.items.length; });
+  flushT(); out.push({ h: `<div class="xlegend"><span class="ck on"></span> = สารเคมี/อุปกรณ์ที่ใช้ในการบริการครั้งนี้</div>` });
+  return out;
 }
-function sectionBlocks(r) {
-  const cl = esc(C('client')); const out = [];
-  r.sections.forEach((s, i) => {
-    out.push(`<div class="xs-t"><span class="no">${i + 1}</span>${esc(s.title)}</div><div class="xs-f"><span class="lab">ผลการตรวจสอบ</span><div>${nl(s.finding)}</div></div>`);
-    out.push(`<div class="xs-a">การปรับปรุงแก้ไข / ข้อเสนอแนะ</div><div class="xs-by adv">โดย บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด</div>`);
-    (s.adv || []).filter(x => x.trim()).forEach(x => out.push(`<div class="xs-li adv">${nl(x)}</div>`));
-    if ((s.cli || []).some(x => x.trim())) { out.push(`<div class="xs-by cli">โดย ${cl}</div>`); s.cli.filter(x => x.trim()).forEach(x => out.push(`<div class="xs-li cli">${nl(x)}</div>`)); }
-    out.push('<div class="xs-gap"></div>');
+function stTotalOf(b) { return sum(b.rows.map(r => sum(r.v))); }
+function yearKeys() { const ys = +C('yearStart') || 1; const fy = M >= ys ? Y : Y - 1; return Array.from({ length: 12 }, (_, i) => addMonths(mk(fy, ys), i)); }
+function piecesStations(b) {
+  const out = [{ k: 'h', h: bHead(b.title) }]; const cols = b.cols.length ? b.cols : ['จำนวน']; const multi = cols.length > 1; const f = b.showFound && b.found;
+  const hd = `<tr><th style="width:34px">ที่</th><th>สถานที่ / ตำแหน่ง</th>${f ? `<th style="width:70px">${esc(b.found[0])}</th><th style="width:70px">${esc(b.found[1])}</th>` : ''}${cols.map(c => `<th style="width:${multi ? 66 : 92}px">${esc(c)}</th>`).join('')}${multi ? '<th style="width:60px">รวม</th>' : ''}${b.showRemark ? '<th style="width:120px">หมายเหตุ</th>' : ''}</tr>`;
+  const row = (x, i) => { const t = sum(x.v); return `<tr class="${i % 2 ? 'z' : ''}${t > 0 ? ' hit' : ''}"><td class="c">${i + 1}</td><td>${esc(x.loc)}</td>${f ? `<td class="c">${t > 0 ? '✓' : ''}</td><td class="c">${t > 0 ? '' : '✓'}</td>` : ''}${x.v.map(v => `<td class="c">${v}</td>`).join('')}${multi ? `<td class="c b">${t}</td>` : ''}${b.showRemark ? `<td class="nt">${esc(x.rem)}</td>` : ''}</tr>`; };
+  const tot = cols.map((_, j) => sum(b.rows.map(x => x.v[j])));
+  const totRow = b.showTotal ? `<tr class="tot"><td colspan="${2 + (f ? 2 : 0)}">รวม (พบ ${b.rows.filter(x => sum(x.v) > 0).length} จาก ${b.rows.length} จุด)</td>${tot.map(v => `<td class="c">${v}</td>`).join('')}${multi ? `<td class="c">${sum(tot)}</td>` : ''}${b.showRemark ? '<td></td>' : ''}</tr>` : '';
+  for (let i = 0; i < b.rows.length; i += 22) { const part = b.rows.slice(i, i + 22).map((x, j) => row(x, i + j)).join(''); out.push({ h: `<table class="xct st">${hd}${part}${i + 22 >= b.rows.length ? totRow : ''}</table>` }); }
+  if (!b.rows.length) out.push({ h: '<p class="xnote">— ยังไม่มีจุด —</p>' });
+  if (b.chart) {
+    const ks = yearKeys(); const vals = ks.map(k => { if (k > curKey()) return null; if (k === curKey()) return stTotalOf(b); const rr = reports[k]; if (!rr || rr._new) return null; const bb = upgrade(rr).blocks.find(x => x.id === b.id); return bb ? stTotalOf(bb) : null; });
+    const img = barChart({ w: 680, h: 230, title: (b.chartTitle || 'จำนวนที่พบในแต่ละเดือน') + (b.unit ? ` (${b.unit})` : ''), labels: ks.map(mShort), vals, hi: ks.indexOf(curKey()), alert: b.alert, action: b.action });
+    out.push({ h: `<div class="xchart"><img src="${img}" style="width:680px"></div>` });
+  }
+  if ((b.note || '').trim()) out.push({ h: `<div class="xnote"><b>หมายเหตุ</b> ${nl(b.note)}</div>` });
+  return out;
+}
+function piecesSections(b) {
+  const cl = esc(C('client')); const out = [{ k: 'h', h: bHead(b.title) }];
+  b.items.forEach((s, i) => {
+    out.push({ k: 'h', h: `<div class="xs-t"><span class="no">${i + 1}</span>${esc(s.title)}</div>` });
+    if ((s.finding || '').trim()) out.push({ h: `<div class="xs-f"><span class="lab">ผลการตรวจสอบ</span><div>${nl(s.finding)}</div></div>` });
+    const adv = (s.adv || []).filter(x => x.trim()), cli = (s.cli || []).filter(x => x.trim());
+    if (adv.length || cli.length) out.push({ k: 'h', h: `<div class="xs-a">การปรับปรุงแก้ไข / ข้อเสนอแนะ</div>` });
+    if (adv.length) { out.push({ k: 'h', h: `<div class="xs-by adv">โดย บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด</div>` }); adv.forEach(x => out.push({ h: `<div class="xs-li adv">${nl(x)}</div>` })); }
+    if (cli.length) { out.push({ k: 'h', h: `<div class="xs-by cli">โดย ${cl}</div>` }); cli.forEach(x => out.push({ h: `<div class="xs-li cli">${nl(x)}</div>` })); }
+    out.push({ k: 'gap', h: '<div class="xs-gap"></div>' });
   });
   return out;
 }
-function pagesSummary(r) {
-  /* จัดหน้าอัตโนมัติ: วัดความสูงจริงของแต่ละย่อหน้า แล้วขึ้นหน้าใหม่เมื่อเต็ม (ไม่ให้หัวข้อค้างท้ายหน้า) */
-  const blocks = sectionBlocks(r); if (!blocks.length) return [];
-  const root = $('#measure'); root.innerHTML = `<div class="pg P xp"><div class="xb" style="position:static;width:${794 - 2 * 56}px"></div></div>`; const body = root.querySelector('.xb');
-  const hOf = b => { body.innerHTML = b; return body.getBoundingClientRect().height + 1; };
-  const AVAIL = 1123 - 188 - 70; const isHead = b => !/xs-li|xs-gap/.test(b);
-  const pages = []; let curr = [], h = 0;
-  for (const b of blocks) {
-    const bh = hOf(b);
-    if (h + bh > AVAIL && curr.length) {
-      const carry = []; while (curr.length > 1 && isHead(curr[curr.length - 1]) && carry.length < 4) carry.unshift(curr.pop());
-      while (curr.length && /xs-gap/.test(curr[curr.length - 1])) curr.pop();
-      pages.push(curr); curr = carry; h = carry.reduce((t, x) => t + hOf(x), 0);
-    }
-    if (/xs-gap/.test(b) && !curr.length) continue;
-    curr.push(b); h += bh;
-  }
-  if (curr.length) pages.push(curr);
-  root.innerHTML = '';
-  return pages.map((p, i) => ({ o: 'P', name: 'สรุปผลการตรวจ หน้า ' + (i + 1), html: `<div class="pg P xp">${xHead('สรุปผลการตรวจสอบและข้อเสนอแนะ')}<div class="xb">${p.join('')}</div>${xFoot()}</div>` }));
+function piecesText(b) { const out = []; if ((b.title || '').trim()) out.push({ k: 'h', h: bHead(b.title) }); (b.body || '').split(/\n\s*\n/).filter(s => s.trim()).forEach(p => out.push({ h: `<div class="xp-p">${nl(p.trim())}</div>` })); return out; }
+function piecesSign(b) {
+  const out = [];
+  if (b.showTechs !== false && (b.techs || []).length) { out.push({ k: 'h', h: `<div class="xs-h" style="margin-top:8px">${esc(b.title)}</div>` }); out.push({ h: `<div class="xtech"><ol>${b.techs.map(t => `<li>${esc(t)}</li>`).join('')}</ol></div>` }); }
+  if (b.showSign !== false) out.push({ h: `<div class="xsign"><div><div class="ln"></div>ผู้จัดทำรายงาน<br><b>${esc(C('preparer'))}</b><br>${esc(C('preparerTitle'))}</div><div><div class="ln"></div>ผู้รับรายงาน<br><b>${esc(C('client'))}</b><br>วันที่ ........ / ........ / ........</div></div>` });
+  return out;
 }
-function pagesPhotos(r) {
-  const ph = r.photos.filter(p => p.id && (!p.id.startsWith('up:') || mem[p.id])); const out = [];
-  const W = 794 - 2 * 56, GAP = 12, CW = (W - 2 * GAP) / 3, MAXH = 262, MINH = 140;
-  for (let i = 0; i < ph.length; i += PER_PAGE) {
-    const chunk = ph.slice(i, i + PER_PAGE); const rows = [];
-    for (let j = 0; j < chunk.length; j += 3) rows.push(chunk.slice(j, j + 3));
-    const html = rows.map(row => { const rh = Math.round(Math.max(MINH, Math.min(MAXH, Math.max(...row.map(p => CW * (p.h || 4) / (p.w || 3))))));
+function pagesPhotos(b) {
+  const per = +b.perPage || 9; const ncol = per === 4 ? 2 : 3; const ph = b.photos.filter(p => p.id && (!p.id.startsWith('up:') || mem[p.id])); const out = [];
+  const W = 794 - 2 * 56, GAP = 12, CW = (W - (ncol - 1) * GAP) / ncol, nrow = Math.ceil(per / ncol), MAXH = Math.floor((1123 - 188 - 70 - (nrow - 1) * GAP) / nrow), MINH = Math.min(140, MAXH);
+  for (let i = 0; i < ph.length; i += per) {
+    const chunk = ph.slice(i, i + per); const rows = []; for (let j = 0; j < chunk.length; j += ncol) rows.push(chunk.slice(j, j + ncol));
+    const html = rows.map((row, ri) => { const rh = Math.round(Math.max(MINH, Math.min(MAXH, Math.max(...row.map(p => CW * (p.h || 4) / (p.w || 3))))));
       return `<div class="xr" style="height:${rh}px">${row.map((p, k) => { const ar = (p.w || 3) / (p.h || 4); let w = CW, h = CW / ar; if (h > rh) { h = rh; w = rh * ar; }
-        const n = i + rows.indexOf(row) * 3 + k + 1;
-        return `<div class="xcell" style="width:${CW}px;height:${rh}px"><div class="xim" style="width:${w}px;height:${h}px;background-image:url('${esc(imgURL(p.id))}')"><span>${n}</span></div></div>`; }).join('')}</div>`; }).join('');
-    out.push({ o: 'P', name: 'รูปภาพ หน้า ' + (out.length + 1), html: `<div class="pg P xp">${xHead(C('photoTitle'))}<div class="xb xg">${html}</div>${xFoot()}</div>` });
+        return `<div class="xcell" style="width:${CW}px;height:${rh}px"><div class="xim" style="width:${w}px;height:${h}px;background-image:url('${esc(imgURL(p.id))}')"><span>${i + ri * ncol + k + 1}</span></div></div>`; }).join('')}</div>`; }).join('');
+    out.push({ o: 'P', name: b.title + ' หน้า ' + (out.length + 1), html: `<div class="pg P xp">${xHead(b.title)}<div class="xb xg">${html}</div>${xFoot()}</div>` });
   }
   return out;
 }
+function pageImage(b) {
+  if (!b.img || !b.img.id) return [];
+  const L = (b.img.w || 4) > (b.img.h || 3); const Hh = L ? 794 : 1123;
+  const top = b.showTitle !== false ? 108 : 36;
+  return [{ o: L ? 'L' : 'P', name: b.title, html: `<div class="pg ${L ? 'L' : 'P'} xp">${b.showTitle !== false ? `<div class="xi-t"><img src="${LOGO}"><div><b>${esc(b.title)}</b><span>${esc(C('client'))} · ${esc(mName(curKey()))}</span></div></div>` : ''}
+    <div class="xi-img" style="top:${top}px;height:${Hh - top - 56}px;background-image:url('${esc(imgURL(b.img.id))}')"></div>${xFoot()}</div>` }];
+}
+/* ตัวจัดหน้า: วัดความสูงจริงของทุกชิ้น ไหลต่อเนื่องข้ามบล็อก ขึ้นหน้าใหม่เมื่อเต็ม หรือเมื่อบล็อกตั้ง "เริ่มหน้าใหม่" */
+function flowPages(group) {
+  const root = $('#measure'); root.innerHTML = `<div class="pg P xp"><div class="xb" style="position:static;width:${794 - 2 * 56}px"></div></div>`; const body = root.querySelector('.xb');
+  const hOf = h => { body.innerHTML = h; return body.getBoundingClientRect().height + 1; };
+  const AVAIL = 1123 - 188 - 70; const pages = []; let curr = [], h = 0;
+  const brk = () => { while (curr.length && curr[curr.length - 1].k === 'gap') curr.pop(); if (curr.length) pages.push(curr); curr = []; h = 0; };
+  group.forEach(({ pieces, newPage }) => {
+    if (newPage) brk();
+    pieces.forEach(p => {
+      const ph = hOf(p.h);
+      if (h + ph > AVAIL && curr.length) { const carry = []; while (curr.length > 1 && curr[curr.length - 1].k === 'h' && carry.length < 4) carry.unshift(curr.pop()); brk(); curr = carry; h = carry.reduce((t, x) => t + hOf(x.h), 0); }
+      if (p.k === 'gap' && !curr.length) return;
+      curr.push(p); h += ph;
+    });
+  });
+  brk(); root.innerHTML = '';
+  return pages.map(p => { const t = REPORT_TITLE;
+    return { o: 'P', name: t, html: `<div class="pg P xp">${xHead(t)}<div class="xb">${p.map(x => x.h).join('')}</div>${xFoot()}</div>` }; });
+}
 function buildPages() {
-  const r = cur(); const P = [pageCover(r), pageChem(r), ...pagesSummary(r), ...pagesPhotos(r)];
-  const N = P.length - 1; P.forEach((p, i) => { if (i) p.html = p.html.replace('<span class="pno"></span>', `<span class="pno">หน้า ${i} / ${N}</span>`); });
+  const r = cur(); const P = []; let flow = [];
+  const flushFlow = () => { if (flow.length) P.push(...flowPages(flow)); flow = []; };
+  vis(r).forEach(b => {
+    if (b.type === 'cover') { flushFlow(); P.push(pageCover(b, r)); return; }
+    if (b.type === 'photos') { flushFlow(); P.push(...pagesPhotos(b)); return; }
+    if (b.type === 'image') { flushFlow(); P.push(...pageImage(b)); return; }
+    const pieces = b.type === 'chem' ? piecesChem(b, r) : b.type === 'stations' ? piecesStations(b) : b.type === 'sections' ? piecesSections(b) : b.type === 'text' ? piecesText(b) : b.type === 'sign' ? piecesSign(b) : [];
+    if (pieces.length) flow.push({ pieces, newPage: !!b.newPage });
+  });
+  flushFlow();
+  const N = P.filter(p => !p.cover).length; let n = 0; P.forEach(p => { if (!p.cover) p.html = p.html.replace('<span class="pno"></span>', `<span class="pno">หน้า ${++n} / ${N}</span>`); });
   return P;
 }
 
 /* ───────── UI ───────── */
-const TABS = [['info', '1 ข้อมูลลูกค้า & วันบริการ'], ['chem', '2 สารเคมี'], ['sec', '3 ผลการตรวจ & คำแนะนำ'], ['photo', '4 รูปภาพ'], ['out', '5 ตรวจ & ดาวน์โหลด PDF']];
-function goTab(t) { document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x.dataset.t === t)); document.querySelectorAll('section.tab').forEach(s => s.classList.toggle('on', s.id === 't-' + t)); if (t === 'out') renderOut(); window.scrollTo(0, 0); }
+const TABS = [['info', '1 ข้อมูลลูกค้า & วันบริการ'], ['layout', '2 โครงรายงาน'], ['fill', '3 กรอกข้อมูล'], ['out', '4 ตรวจ & ดาวน์โหลด PDF']];
+function goTab(t) { document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x.dataset.t === t)); document.querySelectorAll('section.tab').forEach(s => s.classList.toggle('on', s.id === 't-' + t)); if (t === 'out') renderOut(); if (t === 'fill') renderFill(); if (t === 'layout') renderLayout(); window.scrollTo(0, 0); }
 function navRow(t) { const i = TABS.findIndex(x => x[0] === t); const p = TABS[i - 1], n = TABS[i + 1]; return `<div class="row">${p ? `<button class="btn" data-go="${p[0]}">← ย้อนกลับ</button>` : ''}${n ? `<button class="btn pri" data-go="${n[0]}">ถัดไป: ${esc(n[1])} →</button>` : ''}</div>`; }
 function bindNav(el) { el.querySelectorAll('[data-go]').forEach(b => b.onclick = () => goTab(b.dataset.go)); }
-const lines = v => v.split('\n').map(s => s.trim()).filter(Boolean);
 function renderInfo() {
   const r = cur(); const el = $('#t-info');
   el.innerHTML = `<div class="card"><h2>ข้อมูลลูกค้า <span class="hint">(ใช้กับทุกเดือนของลูกค้ารายนี้)</span></h2><div class="grid2">
@@ -160,95 +248,176 @@ function renderInfo() {
   <label class="f">เลขที่สัญญา (ถ้ามีหลายสัญญา คั่นด้วย ,)<input data-c="contracts" value="${esc((C('contracts') || []).join(', '))}"></label>
   <label class="f">ชื่อผู้จัดทำ<input data-c="preparer" value="${esc(C('preparer'))}"></label>
   <label class="f">ตำแหน่งผู้จัดทำ<input data-c="preparerTitle" value="${esc(C('preparerTitle'))}"></label>
-  <label class="f" style="grid-column:1/-1">บรรทัดชนิดสัตว์พาหะบนหน้าปก<input data-c="pestsLine" value="${esc(C('pestsLine'))}"></label></div></div>
-  <div class="card"><h2>การเข้าบริการ · ${esc(mName(curKey()))}</h2><div class="grid2"><label class="f">วันที่ทำบริการ<input type="date" id="svcDate" value="${esc(r.svcDate)}"></label><label class="tg"><input type="checkbox" id="showDate" ${r.showDate !== false ? 'checked' : ''}> แสดงวันที่ทำบริการในรายงาน <span class="hint">(หน้าปก และหน้ารายงานการใช้สารเคมี)</span></label></div><p class="hint" id="dh"></p>
-  <label class="f" style="margin-top:10px">รายชื่อผู้เข้าทำบริการ (บรรทัดละ 1 คน)<textarea id="techs" rows="5">${esc(r.techs.join('\n'))}</textarea></label></div>${navRow('info')}`;
-  el.querySelectorAll('[data-c]').forEach(e => e.oninput = () => { const k = e.dataset.c; cfg[k] = k === 'contracts' ? e.value.split(',').map(s => s.trim()).filter(Boolean) : e.value; if (k === 'client') { $('#appTitle').textContent = 'รายงาน Custom · ' + e.value; } cfgDirty(); });
+  <label class="f">บรรทัดชนิดสัตว์พาหะบนหน้าปก<input data-c="pestsLine" value="${esc(C('pestsLine'))}"></label>
+  <label class="f">กราฟรายเดือนเริ่มนับปีที่เดือน<select data-c="yearStart">${TH_M.map((t, i) => `<option value="${i + 1}" ${+C('yearStart') === i + 1 ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div></div>
+  <div class="card"><h2>การเข้าบริการ · ${esc(mName(curKey()))}</h2><div class="grid2"><label class="f">วันที่ทำบริการ<input type="date" id="svcDate" value="${esc(r.svcDate)}"></label></div><p class="hint" id="dh"></p>
+  <p class="hint">การแสดง/ซ่อนวันที่ในหน้าปกและหน้าสารเคมี ตั้งได้ในแท็บ 2 "โครงรายงาน" ที่ตัวเลือกของบล็อกนั้น</p></div>${navRow('info')}`;
+  el.querySelectorAll('[data-c]').forEach(e => { const f = () => { const k = e.dataset.c; cfg[k] = k === 'contracts' ? e.value.split(',').map(s => s.trim()).filter(Boolean) : k === 'yearStart' ? +e.value : e.value; if (k === 'client') $('#appTitle').textContent = 'รายงาน Custom · ' + e.value; cfgDirty(); }; e.oninput = f; e.onchange = f; });
   const d = $('#svcDate'); const dh = () => { $('#dh').innerHTML = r.svcDate && r.svcDate.slice(0, 7) !== curKey() ? '<b style="color:#d92d20">วันที่บริการไม่ตรงกับเดือนที่เลือก</b>' : ''; };
   d.oninput = () => { r.svcDate = d.value; markDirty(); dh(); }; dh();
-  $('#showDate').onchange = e => { r.showDate = e.target.checked; markDirty(); };
-  $('#techs').oninput = e => { r.techs = lines(e.target.value); markDirty(); };
   bindNav(el);
 }
-function renderChem() {
-  const r = cur(); const el = $('#t-chem');
-  el.innerHTML = `<div class="card"><div class="row"><h2 style="margin:0;flex:1">รายชื่อสารเคมี (CHEMICALS USED REPORT)</h2><button class="btn sm" id="chAll">ติ๊กทั้งหมด</button><button class="btn sm" id="chNone">ไม่ติ๊กทั้งหมด</button></div>
-  <p class="hint">ติ๊ก ✓ = ใช้ในรอบนี้ · ชนิดแมลงที่ติดกันและพิมพ์เหมือนกันจะรวมเป็นช่องเดียวในรายงาน (ใช้ " / " ขึ้นบรรทัดใหม่ เช่น มด / แมลงสาบ) · รายการนี้จะถูกคัดลอกไปเดือนถัดไปให้อัตโนมัติ</p>
-  <table class="ed"><tr><th style="width:44px">ใช้</th><th style="width:180px">ชนิดของแมลง</th><th>ชื่อการค้าของสารเคมี</th><th>หมายเหตุ</th><th style="width:140px"></th></tr>
-  ${r.chem.map((c, i) => `<tr class="${c.used ? '' : 'off'}"><td><input type="checkbox" data-u="${i}" ${c.used ? 'checked' : ''} style="width:20px;height:20px"></td><td><input type="text" data-k="pest" data-i="${i}" value="${esc(c.pest)}"></td><td><input type="text" data-k="name" data-i="${i}" value="${esc(c.name)}"></td><td><input type="text" data-k="note" data-i="${i}" value="${esc(c.note)}"></td>
-  <td><button class="btn sm" data-mv="-1" data-i="${i}">▲</button><button class="btn sm" data-mv="1" data-i="${i}">▼</button><button class="btn sm" data-del="${i}">ลบ</button></td></tr>`).join('')}</table>
-  <button class="btn sm" id="chAdd" style="margin-top:8px">+ เพิ่มสารเคมี</button></div>${navRow('chem')}`;
-  el.querySelectorAll('[data-u]').forEach(e => e.onchange = () => { r.chem[+e.dataset.u].used = e.checked; e.closest('tr').classList.toggle('off', !e.checked); markDirty(); });
-  el.querySelectorAll('input[data-k]').forEach(e => e.oninput = () => { r.chem[+e.dataset.i][e.dataset.k] = e.value; markDirty(); });
-  el.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { const i = +b.dataset.i, j = i + +b.dataset.mv; if (j < 0 || j >= r.chem.length) return; [r.chem[i], r.chem[j]] = [r.chem[j], r.chem[i]]; markDirty(); renderChem(); });
-  el.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'ยืนยัน'; b.classList.add('pri'); return; } r.chem.splice(+b.dataset.del, 1); markDirty(); renderChem(); });
-  $('#chAdd').onclick = () => { const last = r.chem[r.chem.length - 1]; r.chem.push({ pest: last ? last.pest : '', name: '', used: true, note: '' }); markDirty(); renderChem(); el.querySelectorAll('input[data-k="name"]')[r.chem.length - 1]?.focus(); };
-  $('#chAll').onclick = () => { r.chem.forEach(c => c.used = true); markDirty(); renderChem(); };
-  $('#chNone').onclick = () => { r.chem.forEach(c => c.used = false); markDirty(); renderChem(); };
-  bindNav(el);
+/* ── ตัวเลือกของแต่ละบล็อก (แท็บโครงรายงาน) ── */
+const tog = (k, label, on) => `<label class="opt"><input type="checkbox" data-o="${k}" ${on ? 'checked' : ''}> ${esc(label)}</label>`;
+function blockOptions(b) {
+  if (b.type === 'cover') return `<label class="f">ชื่อรายงานบนหน้าปก (Enter = ขึ้นบรรทัดใหม่)<textarea data-t="coverTitle" rows="2">${esc(b.coverTitle || 'รายงานการปฏิบัติงาน\nกำจัดแมลงและสัตว์พาหะ')}</textarea></label><div class="opts">${tog('showPests', 'แสดงบรรทัดชนิดสัตว์พาหะ', b.showPests !== false)}${tog('showContract', 'แสดงเลขที่สัญญา', b.showContract !== false)}${tog('showDate', 'แสดงวันที่ทำบริการ', b.showDate !== false)}${tog('showPreparer', 'แสดงผู้จัดทำ', b.showPreparer !== false)}</div>`;
+  if (b.type === 'chem') return `<div class="opts">${tog('showInfo', 'แสดงกล่องข้อมูลการบริการ', b.showInfo !== false)}${tog('showDate', 'แสดงวันที่ทำบริการ', b.showDate !== false)}${tog('showNote', 'แสดงคอลัมน์หมายเหตุ', b.showNote !== false)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
+  if (b.type === 'stations') return `<div class="grid2"><label class="f">คอลัมน์ตัวเลข (คั่นด้วย , เช่น แมลงวัน, แมลงหวี่, ยุง)<input data-t="colsTxt" value="${esc(b.cols.join(', '))}"></label>
+    <label class="f">หน่วย (แสดงในกราฟ)<input data-t="unit" value="${esc(b.unit || '')}"></label>
+    <label class="f">หัวคอลัมน์ พบ / ไม่พบ (คั่นด้วย ,)<input data-t="foundTxt" value="${esc((b.found || ['พบ', 'ไม่พบ']).join(', '))}"></label>
+    <label class="f">หัวกราฟ<input data-t="chartTitle" value="${esc(b.chartTitle || '')}"></label>
+    <label class="f">เส้น Alert limit ในกราฟ (เว้นว่าง = ไม่แสดง)<input type="number" data-t="alert" value="${b.alert ?? ''}"></label><label class="f">เส้น Action limit ในกราฟ<input type="number" data-t="action" value="${b.action ?? ''}"></label></div>
+    <div class="opts">${tog('showFound', 'แสดงคอลัมน์ พบ/ไม่พบ', b.showFound)}${tog('showRemark', 'แสดงคอลัมน์หมายเหตุ', b.showRemark)}${tog('showTotal', 'แสดงแถวรวม', b.showTotal)}${tog('chart', 'แสดงกราฟรายเดือน', b.chart)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
+  if (b.type === 'photos') return `<div class="opts"><label class="opt">จำนวนรูปต่อหน้า <select data-t="perPage">${[4, 6, 9].map(n => `<option ${+b.perPage === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>`;
+  if (b.type === 'image') return `<div class="opts">${tog('showTitle', 'แสดงหัวข้อด้านบนรูป', b.showTitle !== false)}</div>`;
+  if (b.type === 'sign') return `<div class="opts">${tog('showTechs', 'แสดงรายชื่อผู้เข้าทำบริการ', b.showTechs !== false)}${tog('showSign', 'แสดงช่องลงนาม', b.showSign !== false)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
+  return `<div class="opts">${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
 }
-function renderSec() {
-  const r = cur(); const el = $('#t-sec'); const cl = C('client') || 'ลูกค้า';
-  el.innerHTML = `<p class="hint">แต่ละหัวข้อคือ 1 ข้อในหน้าสรุปผล · ข้อเสนอแนะพิมพ์บรรทัดละ 1 ข้อ · ระบบจัดหน้าให้อัตโนมัติ · เดือนถัดไปจะคัดลอกข้อความของเดือนนี้ไปให้แก้ต่อ</p>
-  ${r.sections.map((s, i) => `<div class="card" data-s="${i}"><div class="row"><b style="font-size:16px">ข้อ ${i + 1}</b><input type="text" data-f="title" value="${esc(s.title)}" style="flex:1;border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-weight:700">
-  <button class="btn sm" data-mv="-1">▲</button><button class="btn sm" data-mv="1">▼</button><button class="btn sm" data-del>ลบข้อนี้</button></div>
-  <label class="f" style="margin-top:8px">ผลการตรวจสอบ<textarea data-f="finding" rows="3">${esc(s.finding)}</textarea></label>
-  <div class="grid2" style="margin-top:8px"><label class="f">ข้อเสนอแนะ โดย บริษัท แอ๊ดวานซ์ กรุ๊ป เอเชีย จำกัด<textarea data-l="adv" rows="5">${esc((s.adv || []).join('\n'))}</textarea></label>
-  <label class="f">ข้อเสนอแนะ โดย ${esc(cl)}<textarea data-l="cli" rows="5">${esc((s.cli || []).join('\n'))}</textarea></label></div></div>`).join('')}
-  <div class="row" style="margin-bottom:14px"><button class="btn" id="secAdd">+ เพิ่มหัวข้อ</button><button class="btn sm" id="secReset">ใช้ข้อความตั้งต้น</button></div>${navRow('sec')}`;
-  el.querySelectorAll('[data-s]').forEach(box => { const i = +box.dataset.s, s = r.sections[i];
-    box.querySelectorAll('[data-f]').forEach(e => e.oninput = () => { s[e.dataset.f] = e.value; markDirty(); });
-    box.querySelectorAll('[data-l]').forEach(e => e.oninput = () => { s[e.dataset.l] = lines(e.value); markDirty(); });
-    box.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { const j = i + +b.dataset.mv; if (j < 0 || j >= r.sections.length) return; [r.sections[i], r.sections[j]] = [r.sections[j], r.sections[i]]; markDirty(); renderSec(); });
-    const d = box.querySelector('[data-del]'); d.onclick = () => { if (!d.dataset.sure) { d.dataset.sure = 1; d.textContent = 'กดอีกครั้งเพื่อลบ'; d.classList.add('pri'); return; } r.sections.splice(i, 1); markDirty(); renderSec(); };
+function renderLayout() {
+  const r = cur(); const el = $('#t-layout');
+  el.innerHTML = `<div class="card"><div class="row"><h2 style="margin:0;flex:1">โครงรายงานเดือน ${esc(mName(curKey()))}</h2><span class="hint">แสดง ${vis(r).length} จาก ${r.blocks.length} บล็อก</span></div>
+  <p class="hint">เรียงลำดับด้วย ▲ ▼ · ปุ่ม 👁 ซ่อน/แสดง (ซ่อนแล้วข้อมูลยังอยู่) · แก้ชื่อหัวข้อในช่องได้ · ⧉ ทำสำเนา · เดือนถัดไปใช้โครงนี้ต่อ (ตัวเลขและรูปเริ่มใหม่)</p>
+  <div id="blist">${r.blocks.map((b, i) => `<div class="blk ${b.hidden ? 'hid' : ''}" data-i="${i}"><div class="blk-h"><span class="bi">${BLOCK_TYPES[b.type].icon}</span>
+  <input class="bt" data-t="title" value="${esc(b.title)}" title="ชื่อหัวข้อในรายงาน"><span class="hint bty">${esc(BLOCK_TYPES[b.type].label)}</span>
+  <button class="btn sm" data-a="up" ${i ? '' : 'disabled'}>▲</button><button class="btn sm" data-a="dn" ${i < r.blocks.length - 1 ? '' : 'disabled'}>▼</button>
+  <button class="btn sm eye ${b.hidden ? 'off' : ''}" data-a="eye">${b.hidden ? '🚫 ซ่อนอยู่' : '👁 แสดง'}</button><button class="btn sm" data-a="dup" title="ทำสำเนาบล็อก">⧉</button><button class="btn sm del" data-a="del">ลบ</button></div>
+  <div class="blk-o">${blockOptions(b)}</div></div>`).join('')}</div></div>
+  <div class="card"><h2>+ เพิ่มบล็อก</h2><div class="lib">${Object.entries(BLOCK_TYPES).map(([k, t]) => `<button class="libb" data-add="${k}"><span>${t.icon}</span><b>${esc(t.label)}</b><small>${esc(t.desc)}</small></button>`).join('')}</div></div>
+  <div class="card"><h2>เริ่มจากแบบฟอร์มตั้งต้น</h2><p class="hint">แทนที่โครงรายงานของเดือนนี้ทั้งหมดด้วยแบบที่เลือก (กดสองครั้งเพื่อยืนยัน) และใช้เป็นแบบเริ่มต้นของลูกค้ารายนี้</p>
+  <div class="row">${Object.entries(PRESETS).map(([k, p]) => `<button class="btn" data-pre="${k}">${esc(p.label)}</button>`).join('')}</div></div>${navRow('layout')}`;
+  el.querySelectorAll('.blk').forEach(box => { const i = +box.dataset.i, b = r.blocks[i];
+    box.querySelectorAll('[data-a]').forEach(btn => btn.onclick = () => { const a = btn.dataset.a;
+      if (a === 'up' || a === 'dn') { const j = i + (a === 'up' ? -1 : 1); [r.blocks[i], r.blocks[j]] = [r.blocks[j], r.blocks[i]]; }
+      if (a === 'eye') b.hidden = !b.hidden;
+      if (a === 'dup') { const c = clone(b); c.id = uid(); c.title += ' (สำเนา)'; if (c.photos) c.photos = []; r.blocks.splice(i + 1, 0, c); }
+      if (a === 'del') { if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.textContent = 'ยืนยันลบ'; return; } r.blocks.splice(i, 1); }
+      markDirty(); renderLayout(); });
+    box.querySelectorAll('[data-o]').forEach(c => c.onchange = () => { b[c.dataset.o] = c.checked; markDirty(); });
+    box.querySelectorAll('[data-t]').forEach(e => { const f = () => { const k = e.dataset.t; const v = e.value;
+      if (k === 'colsTxt') { const cols = v.split(',').map(s => s.trim()).filter(Boolean); if (!cols.length) return; b.cols = cols; b.rows.forEach(x => { x.v = cols.map((_, j) => x.v[j] || 0); }); }
+      else if (k === 'foundTxt') { const fd = v.split(',').map(s => s.trim()); b.found = [fd[0] || 'พบ', fd[1] || 'ไม่พบ']; }
+      else if (k === 'alert' || k === 'action') b[k] = v === '' ? null : +v; else if (k === 'perPage') b.perPage = +v; else b[k] = v;
+      markDirty(); }; e.oninput = f; e.onchange = f; });
   });
-  $('#secAdd').onclick = () => { r.sections.push({ title: 'สรุปผลการตรวจเช็ค … พื้นที่ภายในอาคาร', finding: '', adv: [], cli: [] }); markDirty(); renderSec(); };
-  const rs = $('#secReset'); rs.onclick = () => { if (!rs.dataset.sure) { rs.dataset.sure = 1; rs.textContent = 'แทนที่ข้อความทั้งหมดของเดือนนี้? กดอีกครั้ง'; return; } r.sections = clone(CUSTOM_DEF.sections); markDirty(); renderSec(); };
+  el.querySelectorAll('[data-add]').forEach(x => x.onclick = () => { r.blocks.push(newBlock(x.dataset.add)); markDirty(); renderLayout(); toast('เพิ่ม "' + BLOCK_TYPES[x.dataset.add].label + '" แล้ว · กรอกข้อมูลในแท็บ 3'); });
+  el.querySelectorAll('[data-pre]').forEach(x => x.onclick = () => { if (!x.dataset.sure) { el.querySelectorAll('[data-pre]').forEach(y => { if (y.dataset.sure) { delete y.dataset.sure; y.textContent = PRESETS[y.dataset.pre].label; } }); x.dataset.sure = 1; x.textContent = 'แทนที่โครงทั้งหมด? กดอีกครั้ง'; return; }
+    r.blocks = PRESETS[x.dataset.pre].make(); cfg.preset = x.dataset.pre; cfgDirty(); markDirty(); renderLayout(); toast('ใช้แบบฟอร์มแล้ว'); });
   bindNav(el);
 }
-function renderPhotos() {
-  const r = cur(); const el = $('#t-photo'); const n = r.photos.length;
-  el.innerHTML = `<div class="card"><div class="row"><h2 style="margin:0;flex:1">รูปภาพการเข้าทำบริการ <span class="hint">${n} รูป · ${Math.ceil(n / PER_PAGE) || 0} หน้า (หน้าละ ${PER_PAGE} รูป)</span></h2>${n ? '<button class="btn sm" id="phClear">ลบทั้งหมด</button>' : ''}</div>
-  <label class="f" style="margin-bottom:10px">หัวข้อหน้ารูป<input id="phTitle" value="${esc(C('photoTitle'))}"></label>
-  <div class="drop" id="drop">ลากรูปมาวางที่นี่ หรือ <u>กดเพื่อเลือกหลายรูปพร้อมกัน</u><br><span class="hint">ระบบหมุนรูปตามที่ถ่ายจริงและจัดแนวตั้ง/แนวนอนให้อัตโนมัติ · ◀ ▶ เลื่อนลำดับ · ✕ ลบ</span></div>
-  <div class="thumbs">${r.photos.map((p, i) => `<div class="th ${p.id.startsWith('up:') ? 'up' : ''}" style="width:${p.w >= p.h ? 128 : 96}px;height:${p.w >= p.h ? 96 : 128}px;background-image:url('${esc(imgURL(p.id))}')"><span class="idx">${i + 1}</span><div class="ctl"><button data-mv="-1" data-i="${i}">◀</button><button data-del="${i}">✕</button><button data-mv="1" data-i="${i}">▶</button></div></div>`).join('')}</div></div>${navRow('photo')}`;
-  const d = $('#drop');
-  const fi = $('#fileIn'); fi.onchange = () => { const fs = [...fi.files]; fi.value = ''; addPhotos(fs); };
-  d.onclick = () => fi.click();
-  d.ondragover = e => { e.preventDefault(); d.classList.add('ov'); }; d.ondragleave = () => d.classList.remove('ov');
-  d.ondrop = e => { e.preventDefault(); d.classList.remove('ov'); addPhotos([...e.dataTransfer.files].filter(f => f.type.startsWith('image/'))); };
-  el.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { const i = +b.dataset.i, j = i + +b.dataset.mv; if (j < 0 || j >= r.photos.length) return; [r.photos[i], r.photos[j]] = [r.photos[j], r.photos[i]]; markDirty(); renderPhotos(); });
-  el.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { r.photos.splice(+b.dataset.del, 1); markDirty(); renderPhotos(); });
-  const cl = $('#phClear'); if (cl) cl.onclick = () => { if (!cl.dataset.sure) { cl.dataset.sure = 1; cl.textContent = 'กดอีกครั้งเพื่อยืนยัน'; return; } r.photos = []; markDirty(); renderPhotos(); };
-  $('#phTitle').oninput = e => { cfg.photoTitle = e.target.value; cfgDirty(); };
+/* ── แท็บกรอกข้อมูล ── */
+function numIn(attrs, v) { return `<input type="number" inputmode="numeric" min="0" step="1" ${attrs} value="${v}" class="num">`; }
+function prevBlock(b) { const p = prevReport(curKey()); if (!p) return null; return upgrade(p).blocks.find(x => x.id === b.id) || null; }
+function editorOf(b) {
+  if (b.type === 'cover') return `<p class="hint">ข้อมูลหน้าปกมาจากแท็บ 1 (ชื่อลูกค้า เลขที่สัญญา ผู้จัดทำ วันที่) · ตัวเลือกการแสดงผลอยู่ในแท็บ 2</p>`;
+  if (b.type === 'chem') return `<div class="row" style="margin-bottom:6px"><button class="btn sm" data-x="all">ติ๊กทั้งหมด</button><button class="btn sm" data-x="none">ไม่ติ๊กทั้งหมด</button><span class="hint">ชนิดแมลงที่พิมพ์เหมือนกันและอยู่ติดกันจะรวมเป็นช่องเดียว (ใช้ " / " ขึ้นบรรทัดใหม่)</span></div>
+    <table class="ed"><tr><th style="width:40px">ใช้</th><th style="width:170px">ชนิดของแมลง</th><th>ชื่อการค้าของสารเคมี</th><th>หมายเหตุ</th><th style="width:132px"></th></tr>
+    ${b.rows.map((c, j) => `<tr class="${c.used ? '' : 'off'}"><td><input type="checkbox" data-u="${j}" ${c.used ? 'checked' : ''} style="width:20px;height:20px"></td><td><input type="text" data-k="pest" data-j="${j}" value="${esc(c.pest)}"></td><td><input type="text" data-k="name" data-j="${j}" value="${esc(c.name)}"></td><td><input type="text" data-k="note" data-j="${j}" value="${esc(c.note)}"></td>
+    <td><button class="btn sm" data-mv="-1" data-j="${j}">▲</button><button class="btn sm" data-mv="1" data-j="${j}">▼</button><button class="btn sm del" data-rm="${j}">ลบ</button></td></tr>`).join('')}</table><button class="btn sm" data-x="add" style="margin-top:8px">+ เพิ่มสารเคมี</button>`;
+  if (b.type === 'stations') { const p = prevBlock(b); const multi = b.cols.length > 1;
+    return `<div class="stat" data-stat></div><div style="overflow-x:auto"><table class="ed"><tr><th style="width:40px">ที่</th><th>สถานที่ / ตำแหน่ง</th><th style="width:80px">เดือนก่อน</th>${b.cols.map(c => `<th style="width:92px">${esc(c)}</th>`).join('')}${multi ? '<th style="width:60px">รวม</th>' : ''}${b.showRemark ? '<th>หมายเหตุ</th>' : ''}<th style="width:132px"></th></tr>
+    ${b.rows.map((x, j) => `<tr class="${sum(x.v) ? 'hitrow' : ''}"><td><b>${j + 1}</b></td><td><input type="text" data-loc="${j}" value="${esc(x.loc)}"></td><td class="hint">${p && p.rows[j] ? sum(p.rows[j].v) : ''}</td>${x.v.map((v, c) => `<td>${numIn(`data-j="${j}" data-c="${c}"`, v)}</td>`).join('')}${multi ? `<td data-tot="${j}"><b>${sum(x.v)}</b></td>` : ''}${b.showRemark ? `<td><input type="text" data-rem="${j}" value="${esc(x.rem)}"></td>` : ''}
+    <td><button class="btn sm" data-mv="-1" data-j="${j}">▲</button><button class="btn sm" data-mv="1" data-j="${j}">▼</button><button class="btn sm del" data-rm="${j}">ลบ</button></td></tr>`).join('')}</table></div>
+    <div class="row" style="margin-top:8px"><button class="btn sm" data-x="add">+ เพิ่มจุด</button><button class="btn sm" data-x="bulk">วางรายชื่อจุดหลายบรรทัด</button><button class="btn sm" data-x="zero">ล้างเป็น 0</button>${p ? '<button class="btn sm" data-x="copy">คัดลอกตัวเลขจากเดือนก่อน</button>' : ''}</div>
+    <div class="bulk" style="display:none"><textarea rows="6" placeholder="วางรายชื่อจุด บรรทัดละ 1 จุด"></textarea><div class="row"><button class="btn sm pri" data-x="bulkok">ใช้รายชื่อนี้</button><span class="hint">แทนที่ชื่อจุดเดิมตามลำดับ และเพิ่มจุดใหม่ถ้ายาวกว่าเดิม</span></div></div>
+    <label class="f" style="margin-top:10px">หมายเหตุท้ายตาราง<textarea data-t="note" rows="2">${esc(b.note || '')}</textarea></label>`; }
+  if (b.type === 'sections') return `${b.items.map((s, j) => `<div class="sec" data-s="${j}"><div class="row"><b>ข้อ ${j + 1}</b><input type="text" data-f="title" value="${esc(s.title)}" style="flex:1;border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-weight:700">
+    <button class="btn sm" data-smv="-1">▲</button><button class="btn sm" data-smv="1">▼</button><button class="btn sm del" data-sdel>ลบข้อนี้</button></div>
+    <label class="f" style="margin-top:8px">ผลการตรวจสอบ<textarea data-f="finding" rows="3">${esc(s.finding)}</textarea></label>
+    <div class="grid2" style="margin-top:8px"><label class="f">ข้อเสนอแนะ โดย บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด (บรรทัดละ 1 ข้อ)<textarea data-l="adv" rows="4">${esc((s.adv || []).join('\n'))}</textarea></label>
+    <label class="f">ข้อเสนอแนะ โดย ${esc(C('client') || 'ลูกค้า')} (บรรทัดละ 1 ข้อ)<textarea data-l="cli" rows="4">${esc((s.cli || []).join('\n'))}</textarea></label></div></div>`).join('')}
+    <div class="row"><button class="btn sm" data-x="add">+ เพิ่มหัวข้อ</button><button class="btn sm" data-x="reset">ใช้ข้อความตั้งต้น</button></div>`;
+  if (b.type === 'text') return `<label class="f">เนื้อหา (เว้นบรรทัดว่างเพื่อขึ้นย่อหน้าใหม่)<textarea data-t="body" rows="6">${esc(b.body || '')}</textarea></label>`;
+  if (b.type === 'sign') return `<label class="f">รายชื่อผู้เข้าทำบริการ (บรรทัดละ 1 คน)<textarea data-techs rows="4">${esc((b.techs || []).join('\n'))}</textarea></label>`;
+  if (b.type === 'photos') return `<div class="drop" data-drop>ลากรูปมาวางที่นี่ หรือ <u>กดเพื่อเลือกหลายรูปพร้อมกัน</u><br><span class="hint">${b.photos.length} รูป · ${Math.ceil(b.photos.length / (+b.perPage || 9)) || 0} หน้า (หน้าละ ${b.perPage || 9} รูป) · หมุนตามที่ถ่ายและจัดแนวตั้ง/นอนอัตโนมัติ</span></div>
+    <div class="thumbs">${b.photos.map((p, j) => `<div class="th ${p.id.startsWith('up:') ? 'up' : ''}" style="width:${p.w >= p.h ? 128 : 96}px;height:${p.w >= p.h ? 96 : 128}px;background-image:url('${esc(imgURL(p.id))}')"><span class="idx">${j + 1}</span><div class="ctl"><button data-mv="-1" data-j="${j}">◀</button><button data-rm="${j}">✕</button><button data-mv="1" data-j="${j}">▶</button></div></div>`).join('')}</div>
+    ${b.photos.length ? '<button class="btn sm del" data-x="clear">ลบรูปทั้งหมด</button>' : ''}`;
+  if (b.type === 'image') return `<div class="drop" data-drop>${b.img ? `<img src="${esc(imgURL(b.img.id))}" style="max-height:220px;max-width:100%">` : 'กดเพื่อเลือกรูปแผนผัง / เอกสาร 1 รูป'}<br><span class="hint">รูปแนวนอนจะเป็นหน้าแนวนอนอัตโนมัติ · บล็อกนี้คัดลอกไปเดือนถัดไปด้วย</span></div>${b.img ? '<button class="btn sm del" data-x="clear">เอารูปออก</button>' : ''}`;
+  return '';
+}
+const edHead = b => `<h2>${BLOCK_TYPES[b.type].icon} ${esc(b.title)} <span class="hint">· ${esc(BLOCK_TYPES[b.type].label)}</span></h2>`;
+function renderFill() {
+  const r = cur(); const el = $('#t-fill');
+  const list = r.blocks.map((b, i) => ({ b, i })).filter(x => !x.b.hidden);
+  el.innerHTML = `<p class="hint">กรอกตามลำดับบล็อกในรายงาน · บล็อกที่ซ่อนไว้จะไม่แสดงที่นี่ (เปิดได้ที่แท็บ 2)</p>
+  ${list.map(({ b, i }) => `<div class="card fb" data-i="${i}">${edHead(b)}${editorOf(b)}</div>`).join('') || '<div class="card"><p class="hint">ยังไม่มีบล็อก — เพิ่มได้ที่แท็บ 2</p></div>'}${navRow('fill')}`;
+  el.querySelectorAll('.fb').forEach(box => bindEditor(box, r.blocks[+box.dataset.i]));
   bindNav(el);
 }
-async function addPhotos(files) {
-  if (!files.length) return; const r = cur(); const key = curKey(); const tmp = [];
-  for (const f of files) { const id = 'up:' + Math.random().toString(36).slice(2); mem[id] = URL.createObjectURL(f); const p = { id, w: 3, h: 4 }; r.photos.push(p); tmp.push([p, f]); }
-  renderPhotos(); let n = 0;
-  for (const [p, f] of tmp) { setStatus(`กำลังอัปโหลดรูป ${++n}/${tmp.length}`);
-    try { const s = await shrink(f); p.w = s.w; p.h = s.h; const id = await uploadImg(s.blob); mem[id] = URL.createObjectURL(s.blob); p.id = id; }
-    catch (e) { const l = reports[key].photos; l.splice(l.indexOf(p), 1); toast('อัปโหลดรูปไม่สำเร็จ: ' + e.message); }
-    if (key === curKey()) renderPhotos(); }
-  markDirty();
+function bindEditor(box, b) {
+  const re = () => { const y = window.scrollY; box.innerHTML = edHead(b) + editorOf(b); bindEditor(box, b); window.scrollTo(0, y); };
+  const q = s => box.querySelectorAll(s);
+  q('[data-t]').forEach(e => e.oninput = () => { b[e.dataset.t] = e.value; markDirty(); });
+  if (b.type === 'chem') {
+    q('[data-u]').forEach(e => e.onchange = () => { b.rows[+e.dataset.u].used = e.checked; e.closest('tr').classList.toggle('off', !e.checked); markDirty(); });
+    q('input[data-k]').forEach(e => e.oninput = () => { b.rows[+e.dataset.j][e.dataset.k] = e.value; markDirty(); });
+    q('[data-mv]').forEach(x => x.onclick = () => { const j = +x.dataset.j, k = j + +x.dataset.mv; if (k < 0 || k >= b.rows.length) return; [b.rows[j], b.rows[k]] = [b.rows[k], b.rows[j]]; markDirty(); re(); });
+    q('[data-rm]').forEach(x => x.onclick = () => { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = 'ยืนยัน'; return; } b.rows.splice(+x.dataset.rm, 1); markDirty(); re(); });
+    q('[data-x]').forEach(x => x.onclick = () => { const a = x.dataset.x; if (a === 'all' || a === 'none') b.rows.forEach(c => c.used = a === 'all'); if (a === 'add') { const l = b.rows[b.rows.length - 1]; b.rows.push({ pest: l ? l.pest : '', name: '', used: true, note: '' }); } markDirty(); re(); });
+  }
+  if (b.type === 'stations') {
+    const upd = () => { const tot = stTotalOf(b); const hit = b.rows.filter(x => sum(x.v) > 0).length; const s = box.querySelector('[data-stat]'); if (s) s.innerHTML = `<span>พบ <b>${hit}</b> / ${b.rows.length} จุด</span><span>รวม <b>${tot}</b> ${esc(b.unit || '')}</span>${b.action != null && tot >= b.action ? '<span class="pill r4">เกิน Action limit</span>' : b.alert != null && tot >= b.alert ? '<span class="pill r3">เกิน Alert limit</span>' : ''}`; };
+    const ins = [...q('input.num')];
+    ins.forEach((inp, n) => { inp.onfocus = () => inp.select();
+      inp.oninput = () => { let v = inp.value === '' ? 0 : Math.round(+inp.value); if (isNaN(v) || v < 0) v = 0; const x = b.rows[+inp.dataset.j]; x.v[+inp.dataset.c] = v; inp.closest('tr').classList.toggle('hitrow', sum(x.v) > 0); const t = box.querySelector(`[data-tot="${inp.dataset.j}"] b`); if (t) t.textContent = sum(x.v); upd(); markDirty(); };
+      inp.onblur = () => { if (inp.value === '') inp.value = 0; };
+      inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); (ins[n + 1] || inp).focus(); } }; });
+    q('[data-loc]').forEach(e => e.oninput = () => { b.rows[+e.dataset.loc].loc = e.value; markDirty(); });
+    q('[data-rem]').forEach(e => e.oninput = () => { b.rows[+e.dataset.rem].rem = e.value; markDirty(); });
+    q('[data-mv]').forEach(x => x.onclick = () => { const j = +x.dataset.j, k = j + +x.dataset.mv; if (k < 0 || k >= b.rows.length) return; [b.rows[j], b.rows[k]] = [b.rows[k], b.rows[j]]; markDirty(); re(); });
+    q('[data-rm]').forEach(x => x.onclick = () => { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = 'ยืนยัน'; return; } b.rows.splice(+x.dataset.rm, 1); markDirty(); re(); });
+    q('[data-x]').forEach(x => x.onclick = () => { const a = x.dataset.x;
+      if (a === 'bulk') { const bx = box.querySelector('.bulk'); bx.style.display = bx.style.display === 'none' ? 'block' : 'none'; return; }
+      if (a === 'bulkok') { const t = box.querySelector('.bulk textarea').value; lines(t).forEach((l, j) => { if (b.rows[j]) b.rows[j].loc = l; else b.rows.push({ loc: l, v: b.cols.map(() => 0), rem: '' }); }); }
+      if (a === 'add') b.rows.push({ loc: 'จุดที่ ' + (b.rows.length + 1), v: b.cols.map(() => 0), rem: '' });
+      if (a === 'zero') b.rows.forEach(r => r.v = r.v.map(() => 0));
+      if (a === 'copy') { const p = prevBlock(b); if (p) b.rows.forEach((r, j) => { if (p.rows[j]) r.v = b.cols.map((_, c) => p.rows[j].v[c] || 0); }); }
+      markDirty(); re(); });
+    upd();
+  }
+  if (b.type === 'sections') {
+    q('[data-s]').forEach(sb => { const j = +sb.dataset.s, s = b.items[j];
+      sb.querySelectorAll('[data-f]').forEach(e => e.oninput = () => { s[e.dataset.f] = e.value; markDirty(); });
+      sb.querySelectorAll('[data-l]').forEach(e => e.oninput = () => { s[e.dataset.l] = lines(e.value); markDirty(); });
+      sb.querySelectorAll('[data-smv]').forEach(x => x.onclick = () => { const k = j + +x.dataset.smv; if (k < 0 || k >= b.items.length) return; [b.items[j], b.items[k]] = [b.items[k], b.items[j]]; markDirty(); re(); });
+      const d = sb.querySelector('[data-sdel]'); d.onclick = () => { if (!d.dataset.sure) { d.dataset.sure = 1; d.textContent = 'กดอีกครั้งเพื่อลบ'; return; } b.items.splice(j, 1); markDirty(); re(); }; });
+    q('[data-x]').forEach(x => x.onclick = () => { if (x.dataset.x === 'add') b.items.push({ title: 'สรุปผลการตรวจเช็ค … พื้นที่ภายในอาคาร', finding: '', adv: [], cli: [] });
+      if (x.dataset.x === 'reset') { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = 'แทนที่ข้อความทั้งหมด? กดอีกครั้ง'; return; } b.items = clone(CUSTOM_DEF.sections); } markDirty(); re(); });
+  }
+  if (b.type === 'sign') { const t = box.querySelector('[data-techs]'); t.oninput = () => { b.techs = lines(t.value); markDirty(); }; }
+  if (b.type === 'photos' || b.type === 'image') {
+    const fi = $('#fileIn'); const d = box.querySelector('[data-drop]');
+    const take = fs => { fs = fs.filter(f => f.type.startsWith('image/')); if (!fs.length) return;
+      if (b.type === 'photos') uploadMany(fs, b.photos, re);
+      else { const tmp = []; uploadMany([fs[0]], tmp, () => { if (tmp[0]) { b.img = tmp[0]; re(); } }, 2600); } };
+    d.onclick = () => { fi.multiple = b.type === 'photos'; fi.onchange = () => { const fs = [...fi.files]; fi.value = ''; take(fs); }; fi.click(); };
+    d.ondragover = e => { e.preventDefault(); d.classList.add('ov'); }; d.ondragleave = () => d.classList.remove('ov'); d.ondrop = e => { e.preventDefault(); d.classList.remove('ov'); take([...e.dataTransfer.files]); };
+    q('[data-mv]').forEach(x => x.onclick = () => { const j = +x.dataset.j, k = j + +x.dataset.mv; if (k < 0 || k >= b.photos.length) return; [b.photos[j], b.photos[k]] = [b.photos[k], b.photos[j]]; markDirty(); re(); });
+    q('[data-rm]').forEach(x => x.onclick = () => { b.photos.splice(+x.dataset.rm, 1); markDirty(); re(); });
+    q('[data-x]').forEach(x => x.onclick = () => { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = 'กดอีกครั้งเพื่อยืนยัน'; return; } if (b.type === 'photos') b.photos = []; else b.img = null; markDirty(); re(); });
+  }
 }
 function issues() {
-  const r = cur(); const out = [];
+  const r = cur(); const out = []; const vb = vis(r);
   if (!C('client')) out.push(['bad', 'ยังไม่ได้ใส่ชื่อลูกค้า']);
-  if (!r.svcDate) out.push([r.showDate !== false ? 'bad' : 'warn', 'ยังไม่ได้ใส่วันที่ทำบริการ' + (r.showDate !== false ? '' : ' (ตั้งค่าไม่แสดงในรายงาน)')]); else if (r.svcDate.slice(0, 7) !== curKey()) out.push(['bad', 'วันที่ทำบริการไม่อยู่ในเดือนที่เลือก']);
-  if (!r.techs.length) out.push(['bad', 'ยังไม่ได้ใส่รายชื่อผู้เข้าทำบริการ']);
-  if (!r.chem.some(c => c.used)) out.push(['warn', 'ยังไม่ได้ติ๊กสารเคมีที่ใช้']);
-  if (!r.photos.length) out.push(['warn', 'ยังไม่มีรูปภาพ']);
-  if (r.photos.some(p => p.id.startsWith('up:'))) out.push(['bad', 'รูปยังอัปโหลดไม่เสร็จ']);
+  const needDate = vb.some(b => (b.type === 'cover' || (b.type === 'chem' && b.showInfo !== false)) && b.showDate !== false);
+  if (!r.svcDate) out.push([needDate ? 'bad' : 'warn', 'ยังไม่ได้ใส่วันที่ทำบริการ']); else if (r.svcDate.slice(0, 7) !== curKey()) out.push(['bad', 'วันที่ทำบริการไม่อยู่ในเดือนที่เลือก']);
+  if (!vb.length) out.push(['bad', 'ยังไม่มีบล็อกที่แสดงในรายงาน']);
+  vb.forEach(b => {
+    if (b.type === 'chem' && !b.rows.some(c => c.used)) out.push(['warn', `${b.title}: ยังไม่ได้ติ๊กสารเคมีที่ใช้`]);
+    if (b.type === 'sign' && b.showTechs !== false && !(b.techs || []).length) out.push(['bad', `${b.title}: ยังไม่ได้ใส่รายชื่อผู้เข้าทำบริการ`]);
+    if (b.type === 'photos' && !b.photos.length) out.push(['warn', `${b.title}: ยังไม่มีรูป (บล็อกนี้จะไม่ขึ้นในรายงาน)`]);
+    if (b.type === 'image' && !b.img) out.push(['warn', `${b.title}: ยังไม่ได้ใส่รูป (บล็อกนี้จะไม่ขึ้นในรายงาน)`]);
+    if (b.type === 'stations' && b.action != null && stTotalOf(b) >= b.action) out.push(['warn', `${b.title}: ยอดรวม ${stTotalOf(b)} เกิน Action limit (${b.action})`]);
+  });
+  if (JSON.stringify(r).includes('"up:')) out.push(['bad', 'รูปยังอัปโหลดไม่เสร็จ']);
   if (!out.length) out.push(['ok', 'ครบถ้วน พร้อมดาวน์โหลด']); return out;
 }
 function renderOut() {
   const el = $('#t-out');
   el.innerHTML = `<div class="card"><h2>ตรวจก่อนดาวน์โหลด</h2><ul class="checks">${issues().map(([c, t]) => `<li class="${c}">${c === 'ok' ? '✓' : c === 'warn' ? '!' : '•'} ${esc(t)}</li>`).join('')}</ul></div>
   <div class="card"><h2>ดาวน์โหลด PDF</h2><div class="row"><button class="btn pri" id="btnPdf">ดาวน์โหลด PDF ทั้งเล่ม</button><span class="hint" id="pdfInfo"></span></div><div class="prog" id="prog" style="display:none"><i></i></div><p class="hint" id="pdfMsg"></p></div>
-  <div class="card danger"><h2>ลบรายงาน</h2><p class="hint">ลบรายงานเดือน ${esc(mName(curKey()))} ของ ${esc(C('client'))} ออกจากระบบ (ลบแล้วกู้คืนไม่ได้)</p><button class="btn del" id="btnDelRep">ลบรายงานเดือนนี้</button></div>
-  <div class="card"><div class="row"><h2 style="margin:0;flex:1">ตัวอย่างทุกหน้า</h2><button class="btn sm" id="btnPreview">สร้างตัวอย่าง</button></div><div id="preview"><p class="hint">กด "สร้างตัวอย่าง" เพื่อดูทุกหน้า</p></div></div>`;
+  <div class="card"><div class="row"><h2 style="margin:0;flex:1">ตัวอย่างทุกหน้า</h2><button class="btn sm" id="btnPreview">สร้างตัวอย่าง</button></div><div id="preview"><p class="hint">กด "สร้างตัวอย่าง" เพื่อดูทุกหน้า</p></div></div>
+  <div class="card danger"><h2>ลบรายงาน</h2><p class="hint">ลบรายงานเดือน ${esc(mName(curKey()))} ของ ${esc(C('client'))} ออกจากระบบ (ลบแล้วกู้คืนไม่ได้)</p><button class="btn del" id="btnDelRep">ลบรายงานเดือนนี้</button></div>`;
   $('#btnPreview').onclick = renderPreview; $('#btnPdf').onclick = downloadPdf;
   const dr = $('#btnDelRep'); dr.onclick = async () => {
     if (!dr.dataset.sure) { dr.dataset.sure = 1; dr.textContent = 'ยืนยันลบรายงานเดือน ' + mName(curKey()) + ' — กดอีกครั้ง'; setTimeout(() => { if (dr.isConnected) { delete dr.dataset.sure; dr.textContent = 'ลบรายงานเดือนนี้'; } }, 5000); return; }
@@ -257,8 +426,8 @@ function renderOut() {
     catch (e) { toast('ลบไม่สำเร็จ: ' + e.message); dr.disabled = false; } };
 }
 function renderPreview() {
-  const pages = buildPages(); const box = $('#preview'); const sc = Math.min(1, (box.clientWidth || 900) / 900) * 0.7;
-  box.innerHTML = pages.map((p, i) => `<div class="pvlab">หน้า ${i + 1} · ${esc(p.name)}</div><div class="pvw" style="width:${794 * sc}px;height:${1123 * sc}px">${p.html.replace('class="pg ', `style="transform:scale(${sc})" class="pg `)}</div>`).join('');
+  const pages = buildPages(); const box = $('#preview'); const sc = Math.min(1, (box.clientWidth || 900) / 1180) * 0.7;
+  box.innerHTML = pages.map(p => { const w = p.o === 'L' ? 1123 : 794, h = p.o === 'L' ? 794 : 1123; return `<div class="pvlab">${esc(p.name)}</div><div class="pvw" style="width:${w * sc}px;height:${h * sc}px">${p.html.replace('class="pg ', `style="transform:scale(${sc})" class="pg `)}</div>`; }).join('');
   $('#pdfInfo').textContent = `ทั้งหมด ${pages.length} หน้า`;
 }
 let fontCSS = null;
@@ -276,11 +445,12 @@ async function waitImgs(el) {
   await Promise.all(bgs.map(s => loadImg(s).catch(() => 0)));
 }
 async function makePdf(onProg) {
-  const { jsPDF } = window.jspdf; await document.fonts.ready; const pages = buildPages(); const root = $('#exportRoot'); const fcss = await getFontCSS();
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-  for (let i = 0; i < pages.length; i++) { if (i) pdf.addPage('a4', 'portrait'); root.innerHTML = pages[i].html; const el = root.firstElementChild; await waitImgs(el);
+  const { jsPDF } = window.jspdf; await document.fonts.ready; const pages = buildPages(); const root = $('#exportRoot'); const fcss = await getFontCSS(); let pdf = null;
+  for (let i = 0; i < pages.length; i++) { const o = pages[i].o === 'L' ? 'landscape' : 'portrait';
+    if (!pdf) pdf = new jsPDF({ orientation: o, unit: 'mm', format: 'a4', compress: true }); else pdf.addPage('a4', o);
+    root.innerHTML = pages[i].html; const el = root.firstElementChild; await waitImgs(el);
     const url = await htmlToImage.toJpeg(el, { quality: .9, pixelRatio: 1.8, backgroundColor: '#ffffff', fontEmbedCSS: fcss, cacheBust: false });
-    pdf.addImage(url, 'JPEG', 0, 0, 210, 297, undefined, 'FAST'); onProg && onProg((i + 1) / pages.length, i + 1, pages.length); await new Promise(r => setTimeout(r, 0)); }
+    pdf.addImage(url, 'JPEG', 0, 0, o === 'landscape' ? 297 : 210, o === 'landscape' ? 210 : 297, undefined, 'FAST'); onProg && onProg((i + 1) / pages.length, i + 1, pages.length); await new Promise(r => setTimeout(r, 0)); }
   root.innerHTML = ''; return pdf.output('blob');
 }
 async function downloadPdf() {
@@ -299,13 +469,14 @@ async function showList() {
   const box = $('#list'); box.innerHTML = '<p class="hint">กำลังโหลด…</p>';
   let L = []; try { L = await rpc('lad_custom_list') || []; } catch (e) { box.innerHTML = '<p class="hint">โหลดรายชื่อไม่สำเร็จ</p>'; return; }
   box.innerHTML = `<div class="card"><h2>ลูกค้าที่ใช้รายงานฉบับ Custom</h2><div class="clist">${L.map(c => `<div class="ctile"><a href="#c=${esc(c.id)}"><b>${esc(c.name)}</b><span class="hint">${c.last ? 'รายงานล่าสุด: ' + esc(mName(c.last)) : 'ยังไม่มีรายงาน'}</span></a><button class="btn sm del" data-delc="${esc(c.id)}" data-n="${esc(c.name)}">ลบลูกค้า</button></div>`).join('') || '<p class="hint">ยังไม่มีลูกค้า</p>'}</div></div>
-  <div class="card"><h2>เพิ่มลูกค้าใหม่</h2><div class="row"><input id="newName" placeholder="ชื่อบริษัทลูกค้า เช่น บริษัท ตัวอย่าง จำกัด" style="flex:1;border:1px solid var(--line);border-radius:6px;padding:8px 10px"><button class="btn pri" id="btnNew">+ เพิ่มลูกค้า</button></div>
-  <p class="hint">ลูกค้าใหม่จะได้รายชื่อสารเคมีและข้อความสรุปตั้งต้นตามรายงานตัวอย่าง แล้วแก้ได้ทั้งหมด</p></div>`;
-  const go = async () => { const n = $('#newName').value.trim(); if (!n) { toast('ใส่ชื่อลูกค้าก่อน'); return; } try { const id = await rpc('lad_custom_create', { p_name: n }); location.hash = 'c=' + id; } catch (e) { toast(e.message); } };
-  $('#btnNew').onclick = go;
+  <div class="card"><h2>เพิ่มลูกค้าใหม่</h2><div class="grid2"><label class="f">ชื่อบริษัทลูกค้า<input id="newName" placeholder="เช่น บริษัท ตัวอย่าง จำกัด"></label>
+  <label class="f">รูปแบบรายงานเริ่มต้น<select id="newPreset">${Object.entries(PRESETS).map(([k, p]) => `<option value="${k}">${esc(p.label)}</option>`).join('')}</select></label></div>
+  <div class="row" style="margin-top:10px"><button class="btn pri" id="btnNew">+ เพิ่มลูกค้า</button><span class="hint">เพิ่ม ซ่อน เรียงบล็อกได้ภายหลังในแท็บ "โครงรายงาน"</span></div></div>`;
+  const go = async () => { const n = $('#newName').value.trim(); if (!n) { toast('ใส่ชื่อลูกค้าก่อน'); return; } try { const id = await rpc('lad_custom_create', { p_name: n }); await rpc('lad_save_config', { p_site: id, p_config: { client: n, preset: $('#newPreset').value } }); location.hash = 'c=' + id; } catch (e) { toast(e.message); } };
+  $('#btnNew').onclick = go; $('#newName').onkeydown = e => { if (e.key === 'Enter') go(); };
   box.querySelectorAll('[data-delc]').forEach(b => b.onclick = async () => {
     if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'ลบลูกค้าและรายงานทั้งหมด? กดอีกครั้ง'; setTimeout(() => { if (b.isConnected) { delete b.dataset.sure; b.textContent = 'ลบลูกค้า'; } }, 5000); return; }
-    b.disabled = true; try { await rpc('lad_custom_delete', { p_site: b.dataset.delc }); toast('ลบ ' + b.dataset.n + ' แล้ว'); showList(); } catch (e) { toast('ลบไม่สำเร็จ: ' + e.message); b.disabled = false; } }); $('#newName').onkeydown = e => { if (e.key === 'Enter') go(); };
+    b.disabled = true; try { await rpc('lad_custom_delete', { p_site: b.dataset.delc }); toast('ลบ ' + b.dataset.n + ' แล้ว'); showList(); } catch (e) { toast('ลบไม่สำเร็จ: ' + e.message); b.disabled = false; } });
 }
 /* ───────── boot ───────── */
 function buildSelectors() {
@@ -315,7 +486,7 @@ function buildSelectors() {
   labelMonths();
 }
 function labelMonths() { const ms = $('#selMonth'); if (!ms) return; [...ms.options].forEach((o, i) => { const k = mk(Y, i + 1); const x = reports[k]; o.textContent = TH_M[i] + (STATUS[k] || (x && !x._new) ? ' · มีข้อมูล' : ''); }); }
-function renderAll() { $('#selYear').value = Y; $('#selMonth').value = M; renderInfo(); renderChem(); renderSec(); renderPhotos(); renderOut(); labelMonths(); }
+function renderAll() { $('#selYear').value = Y; $('#selMonth').value = M; renderInfo(); renderLayout(); renderFill(); renderOut(); labelMonths(); }
 async function openSite(id) {
   await flush(); SITE = id; document.body.classList.remove('listmode'); setStatus('กำลังโหลด…');
   Object.keys(reports).forEach(k => delete reports[k]);
@@ -324,7 +495,7 @@ async function openSite(id) {
   $('#appTitle').textContent = 'รายงาน Custom · ' + (cfg.client || '');
   const now = new Date(); Y = now.getFullYear(); M = now.getMonth() + 1;
   const ks = Object.keys(reports).sort(); const last = ks[ks.length - 1];
-  if (last && !reports[mk(Y, M)]) { const [ly, lm] = last.split('-').map(Number); const nx = lm === 12 ? mk(ly + 1, 1) : mk(ly, lm + 1); if (nx < mk(Y, M)) [Y, M] = nx.split('-').map(Number); }
+  if (last && !reports[mk(Y, M)]) { const nx = addMonths(last, 1); if (nx < mk(Y, M)) [Y, M] = nx.split('-').map(Number); }
   buildSelectors(); renderAll(); goTab('info'); await loadStatus(); setStatus('บันทึกอัตโนมัติ');
 }
 async function route() { const id = siteFromHash(); if (id) await openSite(id); else { await flush(); SITE = null; showList(); } }
