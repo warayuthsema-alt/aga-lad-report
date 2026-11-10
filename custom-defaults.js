@@ -34,7 +34,7 @@ const BLOCK_TYPES = {
   sections: { label: 'สรุปผลการตรวจ & ข้อเสนอแนะ', icon: '📝', desc: 'หัวข้อผลการตรวจ ข้อเสนอแนะโดยบริษัทและโดยลูกค้า' },
   text:     { label: 'ข้อความอิสระ', icon: '✏️', desc: 'หัวข้อ + เนื้อหา เช่น หมายเหตุ แผนงาน ขอบเขตงาน' },
   photos:   { label: 'รูปภาพการทำบริการ', icon: '🖼️', desc: 'หน้าละ 4 / 6 / 9 รูป จัดแนวตั้ง-นอนอัตโนมัติ' },
-  image:    { label: 'รูปเต็มหน้า (แผนผัง / Layout)', icon: '🗺️', desc: 'แผนผังจุดวางอุปกรณ์ เอกสารสแกน 1 รูปต่อหน้า' },
+  image:    { label: 'แนบ Layout / แผนผัง', icon: '🗺️', desc: 'รูปหรือไฟล์ PDF หลายแผ่น 1 แผ่นต่อหน้า พร้อมคำอธิบาย' },
   sign:     { label: 'รายชื่อผู้ทำบริการ & ลงนาม', icon: '✍️', desc: 'รายชื่อช่าง ช่องเซ็นผู้จัดทำ / ผู้รับรายงาน' }
 };
 const uid = () => 'b' + Math.random().toString(36).slice(2, 9);
@@ -43,11 +43,11 @@ function newBlock(type, extra) {
   if (type === 'cover') Object.assign(b, { title: 'หน้าปก', showContract: true, showDate: true, showPreparer: true, showPests: true });
   if (type === 'chem') Object.assign(b, { title: 'รายงานการใช้สารเคมี · Chemicals Used Report', rows: JSON.parse(JSON.stringify(CUSTOM_DEF.chem)), showNote: true, showActive: true, showRatio: true, showMethod: true, newPage: true });
   if (type === 'stations') Object.assign(b, { title: 'รายงานการวางกล่องเหยื่อพิษกำจัดหนู', unit: 'ก้อน', cols: ['จำนวน (ก้อน)'], found: ['กัดแทะเหยื่อ', 'ไม่กัดแทะเหยื่อ'], showFound: true, showRemark: true, showTotal: true,
-    chart: true, chartTitle: 'จำนวนที่พบในแต่ละเดือน', alert: null, action: null, note: '', rows: Array.from({ length: 5 }, (_, i) => ({ loc: 'จุดที่ ' + (i + 1), v: [0], rem: '' })) });
+    chart: true, chartTitle: 'จำนวนที่พบในแต่ละเดือน', layouts: [], showLayout: true, alert: null, action: null, note: '', rows: Array.from({ length: 5 }, (_, i) => ({ loc: 'จุดที่ ' + (i + 1), v: [0], rem: '' })) });
   if (type === 'sections') Object.assign(b, { title: 'สรุปผลการตรวจสอบและข้อเสนอแนะ', items: JSON.parse(JSON.stringify(CUSTOM_DEF.sections)), showRisk: true, showRiskTable: true, newPage: true });
   if (type === 'text') Object.assign(b, { title: 'หมายเหตุ', body: '' });
   if (type === 'photos') Object.assign(b, { title: CUSTOM_DEF.photoTitle, perPage: 9, photos: [] });
-  if (type === 'image') Object.assign(b, { title: 'แผนผังตำแหน่งจุดวางอุปกรณ์', img: null, showTitle: true });
+  if (type === 'image') Object.assign(b, { title: 'แผนผังตำแหน่งจุดวางอุปกรณ์', layouts: [], showTitle: true });
   if (type === 'sign') Object.assign(b, { title: 'รายชื่อผู้เข้าทำบริการ', techs: [...CUSTOM_DEF.techs], showTechs: true, showSign: true });
   return Object.assign(b, extra || {});
 }

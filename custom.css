@@ -154,3 +154,7 @@ table.ed.chemed select{width:100%;border:1px solid var(--line);border-radius:6px
 #cpests{margin-top:6px}#cpests input[type=text],#cpAdd{border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
 
 .libh{font-size:14px;margin:16px 0 8px;color:var(--g)}
+.lays{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}.lay-i{display:flex;flex-direction:column;gap:4px;width:170px}.lay-i input{border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:inherit;font-size:12.5px}
+.xi-cap{position:absolute;left:56px;right:56px;text-align:center;font-size:12px;color:#475467}
+.lays.thumbs{display:flex}
+.lay-i .th{position:relative;border-radius:6px;border:1px solid var(--line);background-size:contain!important;background-repeat:no-repeat;background-color:#fff}

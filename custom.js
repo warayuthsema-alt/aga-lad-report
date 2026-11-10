@@ -42,10 +42,11 @@ function migrate(r) {
     if (b.type === 'sections') { if (b.showRisk === undefined) { b.showRisk = true; b.showRiskTable = true; }
       b.items.forEach(s => { if (s.pest === undefined) { s.pest = guessPest(s.title); s.risk = 0; } if (s.kind === undefined) { const t = s.title || ''; s.kind = /กาว/.test(t) ? 'glue' : /เหยื่อพิษ/.test(t) ? 'bait' : /สถานีแมลงสาบ|บ้านแมลงสาบ/.test(t) ? 'crst' : /เครื่องดัก/.test(t) ? 'ilt' : /เหยื่อ.*ปลวก/.test(t) ? 'ttb' : 'area'; const m = t.match(/พื้นที่\s*(.+)$/); s.area = m ? m[1].trim() : 'ภายในอาคาร'; } }); }
   });
-  r._mig = 3; return r;
+  r.blocks.forEach(b => { if (b.type === 'image' && !b.layouts) { b.layouts = b.img ? [b.img] : []; delete b.img; } if (b.type === 'stations' && !b.layouts) b.layouts = []; });
+  r._mig = 4; return r;
 }
 function upgrade(r) {
-  if (Array.isArray(r.blocks)) return r._mig === 3 ? r : migrate(r);
+  if (Array.isArray(r.blocks)) return r._mig === 4 ? r : migrate(r);
   r.blocks = [newBlock('cover', { showDate: r.showDate !== false }), newBlock('chem', { rows: r.chem || clone(CUSTOM_DEF.chem), showDate: r.showDate !== false }),
     newBlock('sign', { techs: r.techs || [...CUSTOM_DEF.techs], showSign: false }),
     newBlock('sections', { items: r.sections || clone(CUSTOM_DEF.sections) }), newBlock('photos', { photos: r.photos || [], title: cfg.photoTitle || CUSTOM_DEF.photoTitle })];
@@ -211,13 +212,16 @@ function pagesPhotos(b) {
   }
   return out;
 }
-function pageImage(b) {
-  if (!b.img || !b.img.id) return [];
-  const L = (b.img.w || 4) > (b.img.h || 3); const Hh = L ? 794 : 1123;
-  const top = b.showTitle !== false ? 108 : 36;
-  return [{ o: L ? 'L' : 'P', name: b.title, html: `<div class="pg ${L ? 'L' : 'P'} xp">${b.showTitle !== false ? `<div class="xi-t"><img src="${LOGO}"><div><b>${esc(b.title)}</b><span>${esc(C('client'))} · ${esc(mName(curKey()))}</span></div></div>` : ''}
-    <div class="xi-img" style="top:${top}px;height:${Hh - top - 56}px;background-image:url('${esc(imgURL(b.img.id))}')"></div>${xFoot()}</div>` }];
+/* หน้าแผนผัง/Layout: 1 รูปต่อหน้า รูปแนวนอน → หน้าแนวนอนอัตโนมัติ */
+function pagesLayout(list, title, showTitle) {
+  return (list || []).filter(x => x && x.id && (!x.id.startsWith('up:') || mem[x.id])).map((x, i, all) => {
+    const L = (x.w || 4) > (x.h || 3); const Hh = L ? 794 : 1123; const st = showTitle !== false; const top = st ? 108 : 36; const cap = (x.cap || '').trim(); const cb = cap ? 30 : 0;
+    const t = title + (all.length > 1 ? ` (${i + 1}/${all.length})` : '');
+    return { o: L ? 'L' : 'P', name: t, html: `<div class="pg ${L ? 'L' : 'P'} xp">${st ? `<div class="xi-t"><img src="${LOGO}"><div><b>${esc(t)}</b><span>${esc(C('client'))} · ${esc(mName(curKey()))}</span></div></div>` : ''}
+    <div class="xi-img" style="top:${top}px;height:${Hh - top - 56 - cb}px;background-image:url('${esc(imgURL(x.id))}')"></div>${cap ? `<div class="xi-cap" style="top:${Hh - 56 - cb + 4}px">${esc(cap)}</div>` : ''}${xFoot()}</div>` };
+  });
 }
+const pageImage = b => pagesLayout(b.layouts, b.title, b.showTitle);
 /* ตัวจัดหน้า: วัดความสูงจริงของทุกชิ้น ไหลต่อเนื่องข้ามบล็อก ขึ้นหน้าใหม่เมื่อเต็ม หรือเมื่อบล็อกตั้ง "เริ่มหน้าใหม่" */
 function flowPages(group) {
   const root = $('#measure'); root.innerHTML = `<div class="pg P xp"><div class="xb" style="position:static;display:flow-root;width:${794 - 2 * 56}px"></div></div>`; const body = root.querySelector('.xb');
@@ -247,6 +251,7 @@ function buildPages() {
     const pieces = b.type === 'chem' ? piecesChem(b, r) : b.type === 'stations' ? piecesStations(b) : b.type === 'sections' ? piecesSections(b) : b.type === 'text' ? piecesText(b) : b.type === 'sign' ? piecesSign(b) : [];
     pieces.forEach(p => p.bt = b.title);
     if (pieces.length) flow.push({ pieces, newPage: !!b.newPage });
+    if (b.type === 'stations' && b.showLayout !== false && (b.layouts || []).length) { flushFlow(); P.push(...pagesLayout(b.layouts, 'แผนผังตำแหน่ง · ' + b.title, true)); }
   });
   flushFlow();
   const N = P.filter(p => !p.cover).length; let n = 0; P.forEach(p => { if (!p.cover) p.html = p.html.replace('<span class="pno"></span>', `<span class="pno">หน้า ${++n} / ${N}</span>`); });
@@ -293,7 +298,7 @@ function blockOptions(b) {
     <label class="f">หัวกราฟ<input data-t="chartTitle" value="${esc(b.chartTitle || '')}"></label>
     <label class="f">แถวสรุปและกราฟ<select data-t="agg"><option value="sum" ${b.agg !== 'avg' ? 'selected' : ''}>ผลรวม (เช่น จำนวนตัว / ก้อน)</option><option value="avg" ${b.agg === 'avg' ? 'selected' : ''}>ค่าเฉลี่ยต่อจุด (เช่น % การกินเหยื่อ)</option></select></label>
     <label class="f">เส้น Alert limit ในกราฟ (เว้นว่าง = ไม่แสดง)<input type="number" data-t="alert" value="${b.alert ?? ''}"></label><label class="f">เส้น Action limit ในกราฟ<input type="number" data-t="action" value="${b.action ?? ''}"></label></div>
-    <div class="opts">${tog('showFound', 'แสดงคอลัมน์ พบ/ไม่พบ', b.showFound)}${tog('showRemark', 'แสดงคอลัมน์หมายเหตุ', b.showRemark)}${tog('showTotal', 'แสดงแถวรวม', b.showTotal)}${tog('chart', 'แสดงกราฟรายเดือน', b.chart)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
+    <div class="opts">${tog('showFound', 'แสดงคอลัมน์ พบ/ไม่พบ', b.showFound)}${tog('showRemark', 'แสดงคอลัมน์หมายเหตุ', b.showRemark)}${tog('showTotal', 'แสดงแถวรวม', b.showTotal)}${tog('chart', 'แสดงกราฟรายเดือน', b.chart)}${tog('showLayout', 'แสดงหน้าแผนผัง Layout ต่อท้ายตาราง', b.showLayout !== false)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
   if (b.type === 'photos') return `<div class="opts"><label class="opt">จำนวนรูปต่อหน้า <select data-t="perPage">${[4, 6, 9].map(n => `<option ${+b.perPage === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>`;
   if (b.type === 'image') return `<div class="opts">${tog('showTitle', 'แสดงหัวข้อด้านบนรูป', b.showTitle !== false)}</div>`;
   if (b.type === 'sign') return `<div class="opts">${tog('showTechs', 'แสดงรายชื่อผู้เข้าทำบริการ', b.showTechs !== false)}${tog('showSign', 'แสดงช่องลงนาม', b.showSign !== false)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
@@ -352,7 +357,8 @@ function editorOf(b) {
     <td><button class="btn sm" data-mv="-1" data-j="${j}">▲</button><button class="btn sm" data-mv="1" data-j="${j}">▼</button><button class="btn sm del" data-rm="${j}">ลบ</button></td></tr>`).join('')}</table></div>
     <div class="row" style="margin-top:8px"><button class="btn sm" data-x="add">+ เพิ่มจุด</button><button class="btn sm" data-x="bulk">วางรายชื่อจุดหลายบรรทัด</button><button class="btn sm" data-x="zero">ล้างเป็น 0</button>${p ? '<button class="btn sm" data-x="copy">คัดลอกตัวเลขจากเดือนก่อน</button>' : ''}</div>
     <div class="bulk" style="display:none"><textarea rows="6" placeholder="วางรายชื่อจุด บรรทัดละ 1 จุด"></textarea><div class="row"><button class="btn sm pri" data-x="bulkok">ใช้รายชื่อนี้</button><span class="hint">แทนที่ชื่อจุดเดิมตามลำดับ และเพิ่มจุดใหม่ถ้ายาวกว่าเดิม</span></div></div>
-    <label class="f" style="margin-top:10px">หมายเหตุท้ายตาราง<textarea data-t="note" rows="2">${esc(b.note || '')}</textarea></label>`; }
+    <label class="f" style="margin-top:10px">หมายเหตุท้ายตาราง<textarea data-t="note" rows="2">${esc(b.note || '')}</textarea></label>
+    <h3 class="libh">แผนผังตำแหน่งจุดของตารางนี้ (Layout)</h3>${layoutEd(b, 'แนบ Layout ตำแหน่งจุด')}`; }
   if (b.type === 'sections') { const pl = [...new Set([...cpests(), ...b.items.map(s => s.pest).filter(Boolean)])]; const miss = cpests().filter(p => !b.items.some(s => s.pest === p));
     return `<div class="row" style="margin-bottom:8px">${miss.length ? `<button class="btn sm pri" data-x="fill">+ เพิ่มหัวข้อให้แมลงในสัญญาที่ยังไม่มี (${esc(miss.join(', '))})</button>` : '<span class="pill ok">มีหัวข้อครบทุกแมลงตามสัญญา</span>'}<span class="hint">เลือกชนิดสัตว์พาหะและระดับความเสี่ยง → ผลการตรวจและข้อเสนอแนะเติมให้ตามระดับ แก้ไขต่อได้</span></div>
     ${b.items.map((s, j) => `<div class="sec" data-s="${j}"><div class="row"><b>ข้อ ${j + 1}</b><input type="text" data-f="title" value="${esc(s.title)}" style="flex:1;border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-weight:700">
@@ -370,8 +376,39 @@ function editorOf(b) {
   if (b.type === 'photos') return `<div class="drop" data-drop>ลากรูปมาวางที่นี่ หรือ <u>กดเพื่อเลือกหลายรูปพร้อมกัน</u><br><span class="hint">${b.photos.length} รูป · ${Math.ceil(b.photos.length / (+b.perPage || 9)) || 0} หน้า (หน้าละ ${b.perPage || 9} รูป) · หมุนตามที่ถ่ายและจัดแนวตั้ง/นอนอัตโนมัติ</span></div>
     <div class="thumbs">${b.photos.map((p, j) => `<div class="th ${p.id.startsWith('up:') ? 'up' : ''}" style="width:${p.w >= p.h ? 128 : 96}px;height:${p.w >= p.h ? 96 : 128}px;background-image:url('${esc(imgURL(p.id))}')"><span class="idx">${j + 1}</span><div class="ctl"><button data-mv="-1" data-j="${j}">◀</button><button data-rm="${j}">✕</button><button data-mv="1" data-j="${j}">▶</button></div></div>`).join('')}</div>
     ${b.photos.length ? '<button class="btn sm del" data-x="clear">ลบรูปทั้งหมด</button>' : ''}`;
-  if (b.type === 'image') return `<div class="drop" data-drop>${b.img ? `<img src="${esc(imgURL(b.img.id))}" style="max-height:220px;max-width:100%">` : 'กดเพื่อเลือกรูปแผนผัง / เอกสาร 1 รูป'}<br><span class="hint">รูปแนวนอนจะเป็นหน้าแนวนอนอัตโนมัติ · บล็อกนี้คัดลอกไปเดือนถัดไปด้วย</span></div>${b.img ? '<button class="btn sm del" data-x="clear">เอารูปออก</button>' : ''}`;
+  if (b.type === 'image') return layoutEd(b, 'แนบแผนผัง / Layout / เอกสาร');
   return '';
+}
+function layoutEd(b, intro) {
+  const L = b.layouts || [];
+  return `<div class="lay"><div class="drop" data-ld>📎 ${intro} — ลากไฟล์มาวาง หรือ <u>กดเพื่อเลือก</u> (รูปภาพ หรือไฟล์ PDF หลายหน้าได้)<br><span class="hint">${L.length} แผ่น · 1 แผ่นต่อหน้า · แนวนอนเป็นหน้าแนวนอนอัตโนมัติ · คัดลอกไปเดือนถัดไปด้วย</span></div>
+  ${L.length ? `<div class="lays thumbs">${L.map((x, j) => `<div class="lay-i"><div class="th ${x.id.startsWith('up:') ? 'up' : ''}" style="width:${x.w >= x.h ? 160 : 113}px;height:${x.w >= x.h ? 113 : 160}px;background-image:url('${esc(imgURL(x.id))}')"><span class="idx">${j + 1}</span><div class="ctl"><button data-lmv="-1" data-j="${j}">◀</button><button data-lrm="${j}">✕</button><button data-lmv="1" data-j="${j}">▶</button></div></div>
+  <input data-lcap="${j}" value="${esc(x.cap || '')}" placeholder="คำอธิบายใต้แผนผัง (ถ้ามี)"></div>`).join('')}</div>` : ''}</div>`;
+}
+function bindLayout(box, b, re) {
+  const d = box.querySelector('[data-ld]'); if (!d) return; const fi = $('#fileIn'); b.layouts = b.layouts || [];
+  const take = async fs => { fs = await expandPdf(fs); fs = fs.filter(f => f.type.startsWith('image/')); if (fs.length) uploadMany(fs, b.layouts, re, 2600); };
+  d.onclick = () => { fi.multiple = true; fi.accept = 'image/*,application/pdf'; fi.onchange = () => { const fs = [...fi.files]; fi.value = ''; fi.accept = 'image/*'; take(fs); }; fi.click(); };
+  d.ondragover = e => { e.preventDefault(); d.classList.add('ov'); }; d.ondragleave = () => d.classList.remove('ov'); d.ondrop = e => { e.preventDefault(); d.classList.remove('ov'); take([...e.dataTransfer.files]); };
+  box.querySelectorAll('[data-lmv]').forEach(x => x.onclick = () => { const j = +x.dataset.j, k = j + +x.dataset.lmv; if (k < 0 || k >= b.layouts.length) return; [b.layouts[j], b.layouts[k]] = [b.layouts[k], b.layouts[j]]; markDirty(); re(); });
+  box.querySelectorAll('[data-lrm]').forEach(x => x.onclick = () => { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = '?'; return; } b.layouts.splice(+x.dataset.lrm, 1); markDirty(); re(); });
+  box.querySelectorAll('[data-lcap]').forEach(x => x.oninput = () => { b.layouts[+x.dataset.lcap].cap = x.value; markDirty(); });
+}
+/* PDF → รูปภาพทีละหน้า (โหลด pdf.js เมื่อใช้ครั้งแรก) */
+let pdfjsP = null;
+function loadPdfjs() { return pdfjsP || (pdfjsP = new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'lib/pdf.min.js'; s.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js'; ok(window.pdfjsLib); }; s.onerror = () => { pdfjsP = null; no(new Error('โหลดตัวอ่าน PDF ไม่สำเร็จ')); }; document.head.appendChild(s); })); }
+async function expandPdf(files) {
+  const out = [];
+  for (const f of files) {
+    if (f.type !== 'application/pdf' && !/\.pdf$/i.test(f.name)) { out.push(f); continue; }
+    try { setStatus('กำลังแปลง PDF…'); const lib = await loadPdfjs(); const doc = await lib.getDocument({ data: await f.arrayBuffer() }).promise; const n = Math.min(doc.numPages, 30);
+      for (let i = 1; i <= n; i++) { setStatus(`กำลังแปลง PDF หน้า ${i}/${n}`); const pg = await doc.getPage(i); const v0 = pg.getViewport({ scale: 1 }); const sc = Math.min(3, 2600 / Math.max(v0.width, v0.height)); const v = pg.getViewport({ scale: sc });
+        const cv = document.createElement('canvas'); cv.width = Math.round(v.width); cv.height = Math.round(v.height); const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+        await pg.render({ canvasContext: g, viewport: v }).promise; const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.9)); out.push(new File([blob], f.name.replace(/\.pdf$/i, '') + '-p' + i + '.jpg', { type: 'image/jpeg' })); }
+      if (doc.numPages > 30) toast('PDF มีมากกว่า 30 หน้า ใช้ 30 หน้าแรก'); }
+    catch (e) { toast('อ่านไฟล์ PDF ไม่สำเร็จ: ' + e.message); }
+  }
+  return out;
 }
 const edHead = b => `<h2>${BLOCK_TYPES[b.type].icon} ${esc(b.title)} <span class="hint">· ${esc(BLOCK_TYPES[b.type].label)}</span></h2>`;
 function renderFill() {
@@ -441,16 +478,16 @@ function bindEditor(box, b) {
       if (x.dataset.x === 'reset') { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = 'แทนที่ข้อความทั้งหมด? กดอีกครั้ง'; return; } b.items = cpests().map(mk); } markDirty(); re(); });
   }
   if (b.type === 'sign') { const t = box.querySelector('[data-techs]'); t.oninput = () => { b.techs = lines(t.value); markDirty(); }; }
-  if (b.type === 'photos' || b.type === 'image') {
+  if (b.type === 'stations' || b.type === 'image') bindLayout(box, b, re);
+  if (b.type === 'photos') {
     const fi = $('#fileIn'); const d = box.querySelector('[data-drop]');
     const take = fs => { fs = fs.filter(f => f.type.startsWith('image/')); if (!fs.length) return;
-      if (b.type === 'photos') uploadMany(fs, b.photos, re);
-      else { const tmp = []; uploadMany([fs[0]], tmp, () => { if (tmp[0]) { b.img = tmp[0]; re(); } }, 2600); } };
-    d.onclick = () => { fi.multiple = b.type === 'photos'; fi.onchange = () => { const fs = [...fi.files]; fi.value = ''; take(fs); }; fi.click(); };
+      uploadMany(fs, b.photos, re); };
+    d.onclick = () => { fi.multiple = true; fi.onchange = () => { const fs = [...fi.files]; fi.value = ''; take(fs); }; fi.click(); };
     d.ondragover = e => { e.preventDefault(); d.classList.add('ov'); }; d.ondragleave = () => d.classList.remove('ov'); d.ondrop = e => { e.preventDefault(); d.classList.remove('ov'); take([...e.dataTransfer.files]); };
     q('[data-mv]').forEach(x => x.onclick = () => { const j = +x.dataset.j, k = j + +x.dataset.mv; if (k < 0 || k >= b.photos.length) return; [b.photos[j], b.photos[k]] = [b.photos[k], b.photos[j]]; markDirty(); re(); });
     q('[data-rm]').forEach(x => x.onclick = () => { b.photos.splice(+x.dataset.rm, 1); markDirty(); re(); });
-    q('[data-x]').forEach(x => x.onclick = () => { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = 'กดอีกครั้งเพื่อยืนยัน'; return; } if (b.type === 'photos') b.photos = []; else b.img = null; markDirty(); re(); });
+    q('[data-x]').forEach(x => x.onclick = () => { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = 'กดอีกครั้งเพื่อยืนยัน'; return; } b.photos = []; markDirty(); re(); });
   }
 }
 function issues() {
@@ -466,7 +503,7 @@ function issues() {
       const nr = b.items.filter(s => !RISK[+s.risk]).length; if (nr) out.push(['warn', `${b.title}: ${nr} หัวข้อยังไม่ได้เลือกระดับความเสี่ยง`]); }
     if (b.type === 'sign' && b.showTechs !== false && !(b.techs || []).length) out.push(['bad', `${b.title}: ยังไม่ได้ใส่รายชื่อผู้เข้าทำบริการ`]);
     if (b.type === 'photos' && !b.photos.length) out.push(['warn', `${b.title}: ยังไม่มีรูป (บล็อกนี้จะไม่ขึ้นในรายงาน)`]);
-    if (b.type === 'image' && !b.img) out.push(['warn', `${b.title}: ยังไม่ได้ใส่รูป (บล็อกนี้จะไม่ขึ้นในรายงาน)`]);
+    if (b.type === 'image' && !(b.layouts || []).length) out.push(['warn', `${b.title}: ยังไม่ได้ใส่รูป (บล็อกนี้จะไม่ขึ้นในรายงาน)`]);
     if (b.type === 'stations' && b.action != null && stTotalOf(b) >= b.action) out.push(['warn', `${b.title}: ยอดรวม ${stTotalOf(b)} เกิน Action limit (${b.action})`]);
   });
   if (JSON.stringify(r).includes('"up:')) out.push(['bad', 'รูปยังอัปโหลดไม่เสร็จ']);
