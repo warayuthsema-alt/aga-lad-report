@@ -28,7 +28,7 @@ const siteFromHash = () => (location.hash.match(/c=(custom-[a-z0-9]+)/) || [])[1
 function prevReport(k) { const ks = Object.keys(reports).filter(x => x < k && !reports[x]._new).sort(); return ks.length ? reports[ks[ks.length - 1]] : null; }
 function blank(k) {
   const p = prevReport(k);
-  return { svcDate: '', techs: clone((p && p.techs) || CUSTOM_DEF.techs), chem: clone((p && p.chem) || CUSTOM_DEF.chem).map(c => ({ ...c, used: c.used !== false })),
+  return { svcDate: '', showDate: !(p && p.showDate === false), techs: clone((p && p.techs) || CUSTOM_DEF.techs), chem: clone((p && p.chem) || CUSTOM_DEF.chem).map(c => ({ ...c, used: c.used !== false })),
     sections: clone((p && p.sections) || CUSTOM_DEF.sections), photos: [] };
 }
 function cur() { const k = curKey(); if (!reports[k]) { reports[k] = blank(k); reports[k]._new = true; } const r = reports[k];
@@ -75,7 +75,7 @@ function pageCover(r) {
   <div class="xc-title">รายงานการปฏิบัติงาน<br>กำจัดแมลงและสัตว์พาหะ</div>
   <div class="xc-pests">${esc(C('pestsLine'))}</div><div class="xc-rule"></div>
   <div class="xc-card"><div class="xc-lab">จัดทำให้</div><div class="xc-client">${esc(C('client'))}</div>
-  <table class="xc-meta">${ct.length ? `<tr><td>เลขที่สัญญา</td><td>${esc(ct.join(', '))}</td></tr>` : ''}<tr><td>ประจำเดือน</td><td>${esc(mName(curKey()))}</td></tr><tr><td>วันที่ทำบริการ</td><td>${esc(dLong(r.svcDate))}</td></tr><tr><td>จัดทำโดย</td><td>${esc(C('preparer'))}${C('preparerTitle') ? `<br><span>${esc(C('preparerTitle'))}</span>` : ''}</td></tr></table></div>
+  <table class="xc-meta">${ct.length ? `<tr><td>เลขที่สัญญา</td><td>${esc(ct.join(', '))}</td></tr>` : ''}<tr><td>ประจำเดือน</td><td>${esc(mName(curKey()))}</td></tr>${r.showDate !== false ? `<tr><td>วันที่ทำบริการ</td><td>${esc(dLong(r.svcDate))}</td></tr>` : ''}<tr><td>จัดทำโดย</td><td>${esc(C('preparer'))}${C('preparerTitle') ? `<br><span>${esc(C('preparerTitle'))}</span>` : ''}</td></tr></table></div>
   <div class="xc-band"><div><b>Advance Integrated Pest Management</b><br>บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด · Advance Group Asia Co.,Ltd.<br>234/9 ถนนเสรีไทย แขวงคันนายาว เขตคันนายาว กรุงเทพมหานคร 10230</div><div class="xc-tel">02 704 5333<br><span>callcenter@advancegroupasia.com · www.advancegroupasia.com</span></div></div></div>` };
 }
 function xHead(title) { return `<div class="xh"><img src="${LOGO}"><div class="xh-r"><b>บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด</b><span>Advance Group Asia Co.,Ltd.</span></div></div>
@@ -87,7 +87,7 @@ function pageChem(r) {
   const body = grp.map((g, gi) => g.items.map((c, i) => `<tr class="${gi % 2 ? 'z' : ''}">${i === 0 ? `<td class="pc" rowspan="${g.items.length}">${nl(g.p.replace(/\s*\/\s*/g, '\n'))}</td>` : ''}<td><span class="ck ${c.used ? 'on' : ''}"></span>${esc(c.name)}</td><td class="nt">${esc(c.note)}</td></tr>`).join('')).join('');
   const ct = (C('contracts') || []).filter(Boolean);
   return { o: 'P', name: 'รายงานการใช้สารเคมี', html: `<div class="pg P xp">${xHead('รายงานการใช้สารเคมี · Chemicals Used Report')}<div class="xb">
-  <div class="xi"><div><span>สถานที่ให้บริการ</span><b>${esc(C('client'))}</b></div><div><span>วันที่ทำบริการ / Service Date</span><b>${esc(dLong(r.svcDate))}</b></div>
+  <div class="xi"><div><span>สถานที่ให้บริการ</span><b>${esc(C('client'))}</b></div>${r.showDate !== false ? `<div><span>วันที่ทำบริการ / Service Date</span><b>${esc(dLong(r.svcDate))}</b></div>` : ''}
   ${ct.length ? `<div><span>เลขที่สัญญา</span><b>${esc(ct.join(', '))}</b></div>` : ''}<div><span>ผู้จัดทำรายงาน</span><b>${esc(C('preparer'))}</b></div></div>
   <table class="xct"><tr><th style="width:150px">ชนิดของแมลง</th><th>ชื่อการค้าของสารเคมี<br><small>Trade Name of Chemicals</small></th><th style="width:170px">หมายเหตุ</th></tr>${body}</table>
   <div class="xlegend"><span class="ck on"></span> = สารเคมี/อุปกรณ์ที่ใช้ในการบริการครั้งนี้</div>
@@ -161,11 +161,12 @@ function renderInfo() {
   <label class="f">ชื่อผู้จัดทำ<input data-c="preparer" value="${esc(C('preparer'))}"></label>
   <label class="f">ตำแหน่งผู้จัดทำ<input data-c="preparerTitle" value="${esc(C('preparerTitle'))}"></label>
   <label class="f" style="grid-column:1/-1">บรรทัดชนิดสัตว์พาหะบนหน้าปก<input data-c="pestsLine" value="${esc(C('pestsLine'))}"></label></div></div>
-  <div class="card"><h2>การเข้าบริการ · ${esc(mName(curKey()))}</h2><div class="grid2"><label class="f">วันที่ทำบริการ<input type="date" id="svcDate" value="${esc(r.svcDate)}"></label></div><p class="hint" id="dh"></p>
+  <div class="card"><h2>การเข้าบริการ · ${esc(mName(curKey()))}</h2><div class="grid2"><label class="f">วันที่ทำบริการ<input type="date" id="svcDate" value="${esc(r.svcDate)}"></label><label class="tg"><input type="checkbox" id="showDate" ${r.showDate !== false ? 'checked' : ''}> แสดงวันที่ทำบริการในรายงาน <span class="hint">(หน้าปก และหน้ารายงานการใช้สารเคมี)</span></label></div><p class="hint" id="dh"></p>
   <label class="f" style="margin-top:10px">รายชื่อผู้เข้าทำบริการ (บรรทัดละ 1 คน)<textarea id="techs" rows="5">${esc(r.techs.join('\n'))}</textarea></label></div>${navRow('info')}`;
   el.querySelectorAll('[data-c]').forEach(e => e.oninput = () => { const k = e.dataset.c; cfg[k] = k === 'contracts' ? e.value.split(',').map(s => s.trim()).filter(Boolean) : e.value; if (k === 'client') { $('#appTitle').textContent = 'รายงาน Custom · ' + e.value; } cfgDirty(); });
   const d = $('#svcDate'); const dh = () => { $('#dh').innerHTML = r.svcDate && r.svcDate.slice(0, 7) !== curKey() ? '<b style="color:#d92d20">วันที่บริการไม่ตรงกับเดือนที่เลือก</b>' : ''; };
   d.oninput = () => { r.svcDate = d.value; markDirty(); dh(); }; dh();
+  $('#showDate').onchange = e => { r.showDate = e.target.checked; markDirty(); };
   $('#techs').oninput = e => { r.techs = lines(e.target.value); markDirty(); };
   bindNav(el);
 }
@@ -235,7 +236,7 @@ async function addPhotos(files) {
 function issues() {
   const r = cur(); const out = [];
   if (!C('client')) out.push(['bad', 'ยังไม่ได้ใส่ชื่อลูกค้า']);
-  if (!r.svcDate) out.push(['bad', 'ยังไม่ได้ใส่วันที่ทำบริการ']); else if (r.svcDate.slice(0, 7) !== curKey()) out.push(['bad', 'วันที่ทำบริการไม่อยู่ในเดือนที่เลือก']);
+  if (!r.svcDate) out.push([r.showDate !== false ? 'bad' : 'warn', 'ยังไม่ได้ใส่วันที่ทำบริการ' + (r.showDate !== false ? '' : ' (ตั้งค่าไม่แสดงในรายงาน)')]); else if (r.svcDate.slice(0, 7) !== curKey()) out.push(['bad', 'วันที่ทำบริการไม่อยู่ในเดือนที่เลือก']);
   if (!r.techs.length) out.push(['bad', 'ยังไม่ได้ใส่รายชื่อผู้เข้าทำบริการ']);
   if (!r.chem.some(c => c.used)) out.push(['warn', 'ยังไม่ได้ติ๊กสารเคมีที่ใช้']);
   if (!r.photos.length) out.push(['warn', 'ยังไม่มีรูปภาพ']);

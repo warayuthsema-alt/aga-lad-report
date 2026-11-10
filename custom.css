@@ -105,3 +105,5 @@ table.xct td.nt{color:#475467}
 .pg.xc table.xc-meta td:last-child{font-weight:700}.pg.xc table.xc-meta span{font-weight:400;color:#475467;font-size:12.5px}
 .pg.xc .xc-band{position:absolute;left:0;right:0;bottom:0;height:150px;background:var(--g);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0 64px;font-size:11px;line-height:1.7}
 .pg.xc .xc-band b{font-size:14px}.pg.xc .xc-tel{text-align:right;font-size:26px;font-weight:700;line-height:1.2}.pg.xc .xc-tel span{font-size:10.5px;font-weight:400;opacity:.85}
+
+label.tg{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;align-self:end;padding-bottom:8px}label.tg input{width:20px;height:20px}
