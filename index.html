@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>หน้ารวมการทำรายงาน · Advance Group Asia</title>
+<style>
+@font-face{font-family:'Sarabun';font-weight:400;src:url(fonts/sarabun-thai-400-normal.woff2) format('woff2');unicode-range:U+0E01-0E5B,U+200C-200D,U+25CC;}
+@font-face{font-family:'Sarabun';font-weight:700;src:url(fonts/sarabun-thai-700-normal.woff2) format('woff2');unicode-range:U+0E01-0E5B,U+200C-200D,U+25CC;}
+@font-face{font-family:'Sarabun';font-weight:400;src:url(fonts/sarabun-latin-400-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+2000-206F;}
+@font-face{font-family:'Sarabun';font-weight:700;src:url(fonts/sarabun-latin-700-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+2000-206F;}
+:root{--ink:#1d2433;--mut:#667085;--line:#d9dee7;--green:#02472f;--acc:#e0531f}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Sarabun',system-ui,sans-serif;color:var(--ink);background:#f4f6f9}
+header{background:#fff;border-bottom:4px solid var(--green);padding:18px 24px;display:flex;align-items:center;gap:16px}
+header img{height:52px}
+header h1{margin:0;font-size:22px;color:var(--green)}
+header p{margin:2px 0 0;color:var(--mut);font-size:14px}
+main{max-width:1000px;margin:0 auto;padding:36px 18px 60px}
+h2{font-size:18px;margin:0 0 6px}
+.hint{color:var(--mut);font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px;margin-top:20px}
+.tile{background:#fff;border:1.5px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;transition:transform .12s,box-shadow .12s,border-color .12s}
+.tile:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(2,71,47,.13);border-color:#9bc7b0}
+.tile a.go{display:flex;flex-direction:column;text-decoration:none;color:inherit;flex:1}
+.logo{height:190px;display:flex;align-items:center;justify-content:center;background:#fff;border-bottom:1px solid var(--line);padding:22px}
+.logo img{max-width:100%;max-height:100%;object-fit:contain}
+.ph{width:124px;height:124px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:38px;color:#fff}
+.body{padding:16px 18px}
+.body b{font-size:17px;display:block}
+.body span{font-size:14px;color:var(--mut)}
+.foot{display:flex;justify-content:space-between;align-items:center;padding:0 18px 14px}
+.open{color:var(--green);font-weight:700;font-size:14px}
+.chg{background:none;border:0;color:var(--mut);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;padding:0}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1d2433;color:#fff;padding:9px 16px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .2s}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<header>
+<img src="img/logo.png" alt="Advance Group Asia">
+<div><h1>หน้ารวมการทำรายงาน</h1><p>บริษัท แอ๊ดวานซ์ กรุ๊ป เอเซีย จำกัด · คลิกโลโก้ลูกค้าเพื่อเข้าไปทำรายงาน</p></div>
+</header>
+<main>
+<h2>รายงานบริการกำจัดสัตว์พาหะ ประจำเดือน</h2>
+<div class="hint">เลือกลูกค้าที่ต้องการทำรายงาน</div>
+<div class="grid" id="grid"></div>
+</main>
+<input type="file" id="logoIn" accept="image/*" hidden>
+<div class="toast" id="toast"></div>
+<script>
+"use strict";
+const SB='https://zhdigumxkjfvrkkmqqpk.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoZGlndW14a2pmdnJra21xcXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjI2NjcsImV4cCI6MjA5Nzc5ODY2N30.NJpFFXX_KYGgICo3WNaevMxjXc0EB9X7rOzOhWXiIK0';
+/* ลูกค้าในหน้ารวม — เพิ่มลูกค้าใหม่ได้โดยเพิ่มรายการในนี้ */
+const CLIENTS=[
+{id:'siam', name:'บริษัท สยามจตุจักร จำกัด', sub:'ยูเนี่ยนมอลล์ · รายงานทำบริการประจำเดือน', href:'https://aga-lad-report.netlify.app/siam.html', initials:'UM', color:'#1f3a68'},
+{id:'dental',name:'มูลนิธิทันตนวัตกรรมในพระบรมราชูปถัมภ์', sub:'รายงานกำจัดสัตว์พาหะ (มูลนิธิ และ PEL)', href:'https://warayuthsema-alt.github.io/aga-pest-report/advance.html', initials:'ทน', color:'#0b6b8a'},
+{id:'elite', name:'บริษัท ดิ อีลิท ไบโอเทค จำกัด', sub:'รายงานการปฏิบัติงานกำจัดสัตว์พาหะ ประจำเดือน', href:'elite.html', initials:'EB', color:'#7a3e9d'},
+{id:'baxter', name:'Baxter International (Thailand) Co.,Ltd.', sub:'Monthly Report · Ants/Cockroaches/Flies', href:'baxter.html', initials:'BX', color:'#1b5fa8'},
+{id:'vantive', name:'Vantive Healthcare (Thailand) Co., Ltd.', sub:'Monthly Report · Ants/Cockroaches/Flies', href:'vantive.html', initials:'VT', color:'#5a2d82'}
+];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),2400)}
+async function rpc(fn,args){const r=await fetch(SB+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+ANON,'Content-Type':'application/json'},body:JSON.stringify(args||{})});const t=await r.text();if(!r.ok)throw new Error(t);return t?JSON.parse(t):null}
+let cfg={};
+function render(){
+const logos=cfg.hubLogos||{};
+$('#grid').innerHTML=CLIENTS.map(c=>`<div class="tile">
+<a class="go" href="${esc(c.href)}"${c.href.startsWith('http')?' target="_blank" rel="noopener"':''}>
+<div class="logo">${logos[c.id]?`<img src="${esc(logos[c.id])}" alt="${esc(c.name)}">`:`<div class="ph" style="background:${c.color}">${esc(c.initials)}</div>`}</div>
+<div class="body"><b>${esc(c.name)}</b><span>${esc(c.sub)}</span></div>
+</a>
+<div class="foot"><span class="open">เข้าไปทำรายงาน →</span><button class="chg" data-id="${c.id}">${logos[c.id]?'เปลี่ยนโลโก้':'ใส่โลโก้ลูกค้า'}</button></div>
+</div>`).join('');
+document.querySelectorAll('.chg').forEach(b=>b.onclick=()=>pickLogo(b.dataset.id));
+}
+async function shrink(file,max=480){
+const bmp=await createImageBitmap(file);const s=Math.min(1,max/Math.max(bmp.width,bmp.height));
+const c=document.createElement('canvas');c.width=Math.round(bmp.width*s);c.height=Math.round(bmp.height*s);
+c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);return c.toDataURL('image/png');
+}
+function pickLogo(id){
+const fi=$('#logoIn');fi.value='';
+fi.onchange=async()=>{const f=fi.files[0];if(!f)return;
+try{const url=await shrink(f);
+const cur=(await rpc('siam_bootstrap')).config||{}; // อ่านค่าล่าสุดก่อน แล้วรวมเฉพาะโลโก้
+cur.hubLogos=Object.assign({},cur.hubLogos||{},{[id]:url});
+await rpc('siam_save_config',{p_config:cur});cfg=cur;render();toast('บันทึกโลโก้แล้ว')}
+catch(e){toast('บันทึกโลโก้ไม่สำเร็จ')}};
+fi.click();
+}
+render();
+rpc('siam_bootstrap').then(b=>{cfg=(b&&b.config)||{};render()}).catch(()=>{});
+</script>
+</body>
+</html>

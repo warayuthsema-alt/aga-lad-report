@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monthly Report · Baxter International</title>
+<link rel="stylesheet" href="qc.css">
+</head>
+<body>
+<header class="top">
+<a class="btn sm" href="./" id="btnHome" style="background:#fff;border:0;text-decoration:none">← หน้ารวมรายงาน</a>
+<img src="img/logo.png" alt="" style="height:34px;background:#fff;border-radius:6px;padding:3px 6px"><h1 id="appTitle">Monthly Report · Baxter International</h1>
+<label>ปี <select id="selYear"></select></label>
+<label>เดือน <select id="selMonth"></select></label>
+<div id="status">กำลังเชื่อมต่อ…</div>
+</header>
+<nav class="tabs" id="tabs"></nav>
+<main><div class="banner" id="banner"></div></main>
+<div id="exportRoot"></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="fileIn" hidden>
+<script>window.SITE='baxter';</script>
+<script src="lib/html-to-image.js"></script>
+<script src="lib/jspdf.umd.min.js"></script>
+<script src="qc-sites.js"></script>
+<script src="qc.js"></script>
+</body>
+</html>
