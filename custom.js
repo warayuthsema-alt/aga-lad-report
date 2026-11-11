@@ -33,7 +33,7 @@ const C = k => cfg[k] ?? CUSTOM_DEF[k];
 
 function prevReport(k) { const ks = Object.keys(reports).filter(x => x < k && !reports[x]._new).sort(); return ks.length ? reports[ks[ks.length - 1]] : null; }
 /* รายงานรุ่นแรก (ก่อนมีระบบบล็อก) → แปลงเป็นบล็อก */
-const PEST_ORDER = ['แมลงหวี่', 'แมลงวัน', 'แมลงสาบ', 'ปลวก', 'หนู', 'ยุง', 'มด'];
+const PEST_ORDER = ['แมลงหวี่', 'แมลงวัน', 'แมลงสาบ', 'ปลวก', 'หนู', 'ยุง', 'จิ้งจก', 'มด'];
 const guessPest = t => PEST_ORDER.find(p => (t || '').includes(p)) || '';
 function migrate(r) {
   r.blocks.forEach(b => {
@@ -315,7 +315,10 @@ function renderLayout() {
   <button class="btn sm eye ${b.hidden ? 'off' : ''}" data-a="eye">${b.hidden ? '🚫 ซ่อนอยู่' : '👁 แสดง'}</button><button class="btn sm" data-a="dup" title="ทำสำเนาบล็อก">⧉</button><button class="btn sm del" data-a="del">ลบ</button></div>
   <div class="blk-o">${blockOptions(b)}</div></div>`).join('')}</div></div>
   <div class="card"><h2>+ เพิ่มบล็อก</h2><div class="lib">${Object.entries(BLOCK_TYPES).map(([k, t]) => `<button class="libb" data-add="${k}"><span>${t.icon}</span><b>${esc(t.label)}</b><small>${esc(k === 'stations' ? 'ตารางเปล่า กำหนดคอลัมน์เอง' : t.desc)}</small></button>`).join('')}</div>
-  <h3 class="libh">ตารางสถานีสำเร็จรูป <span class="hint">(กดเพื่อเพิ่ม แก้ชื่อจุด/คอลัมน์ได้ภายหลัง)</span></h3><div class="lib">${Object.entries(STATION_TPL).map(([k, t]) => `<button class="libb" data-add="stations" data-tpl="${k}"><span>${t.icon}</span><b>${esc(t.label)}</b><small>${esc(t.desc)}</small></button>`).join('')}</div></div>
+  <h3 class="libh">ตารางสถานีสำเร็จรูป <span class="hint">(กดเพื่อเพิ่ม แก้ชื่อจุด/คอลัมน์ได้ภายหลัง)</span></h3><div class="lib" id="tplLib">${BUILTIN_TPL.map(t => `<button class="libb" data-add="stations" data-tpl="${t.key}"><span>${t.icon}</span><b>${esc(t.label)}</b><small>${esc(t.desc)}</small></button>`).join('')}</div>
+  <h3 class="libh">แบบตารางที่สร้างเอง <span class="hint">(ใช้ร่วมกันทุกลูกค้า)</span></h3><div class="lib">${USER_TPL.map(t => `<div class="libb ut"><button class="ut-add" data-add="stations" data-tpl="${esc(t.key)}"><span>${esc(t.icon || '📋')}</span><b>${esc(t.label)}</b><small>${esc(t.desc || '')}</small></button><div class="ut-ctl"><button class="btn sm" data-tedit="${esc(t.key)}">แก้ไขแบบ</button><button class="btn sm" data-tcopy="${esc(t.key)}">ทำสำเนา</button><button class="btn sm del" data-tdel="${esc(t.key)}">ลบ</button></div></div>`).join('')}
+  <button class="libb newt" data-tnew><span>＋</span><b>สร้างแบบตารางใหม่</b><small>กำหนดชนิดแมลง/คอลัมน์ หน่วย ชื่อจุด เกณฑ์ Alert/Action เอง หรือดัดแปลงจากแบบสำเร็จรูป</small></button>
+  <button class="libb newt" data-tfrom><span>⧉</span><b>ดัดแปลงจากแบบสำเร็จรูป</b><small>เลือกแบบด้านบน แล้วปรับคอลัมน์/จุดเป็นแบบของตัวเอง</small></button></div><div id="tplFormBox"></div>
   <div class="card"><h2>เริ่มจากแบบฟอร์มตั้งต้น</h2><p class="hint">แทนที่โครงรายงานของเดือนนี้ทั้งหมดด้วยแบบที่เลือก (กดสองครั้งเพื่อยืนยัน) และใช้เป็นแบบเริ่มต้นของลูกค้ารายนี้</p>
   <div class="row">${Object.entries(PRESETS).map(([k, p]) => `<button class="btn" data-pre="${k}">${esc(p.label)}</button>`).join('')}</div></div>${navRow('layout')}`;
   el.querySelectorAll('.blk').forEach(box => { const i = +box.dataset.i, b = r.blocks[i];
@@ -332,6 +335,12 @@ function renderLayout() {
       else if (k === 'alert' || k === 'action') b[k] = v === '' ? null : +v; else if (k === 'perPage') b.perPage = +v; else b[k] = v;
       markDirty(); }; e.oninput = f; e.onchange = f; });
   });
+  const box = $('#tplFormBox'); const openForm = t => { box.innerHTML = tplForm(t); bindTplForm(box, t, ok => { box.innerHTML = ''; if (ok) renderLayout(); }); box.scrollIntoView({ behavior: 'smooth' }); };
+  el.querySelector('[data-tnew]').onclick = () => openForm({ _new: true });
+  el.querySelector('[data-tfrom]').onclick = () => { box.innerHTML = `<div class="card"><h2>เลือกแบบที่จะดัดแปลง</h2><div class="row">${allTpl().map(t => `<button class="btn" data-tbase="${esc(t.key)}">${esc(t.icon || '')} ${esc(t.label)}</button>`).join('')}</div></div>`; box.querySelectorAll('[data-tbase]').forEach(x => x.onclick = () => { const t = clone(tplOf(x.dataset.tbase)); delete t.key; t._new = true; t.label = t.label + ' (ดัดแปลง)'; openForm(t); }); };
+  el.querySelectorAll('[data-tedit]').forEach(x => x.onclick = () => openForm(clone(tplOf(x.dataset.tedit))));
+  el.querySelectorAll('[data-tcopy]').forEach(x => x.onclick = () => { const t = clone(tplOf(x.dataset.tcopy)); delete t.key; t._new = true; t.label += ' (สำเนา)'; openForm(t); });
+  el.querySelectorAll('[data-tdel]').forEach(x => x.onclick = () => { if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = 'ยืนยันลบแบบ'; return; } USER_TPL = USER_TPL.filter(t => t.key !== x.dataset.tdel); saveTpl(); renderLayout(); });
   el.querySelectorAll('[data-add]').forEach(x => x.onclick = () => { const t = x.dataset.tpl && STATION_TPL[x.dataset.tpl]; r.blocks.push(t ? t.make({ newPage: true }) : newBlock(x.dataset.add)); markDirty(); renderLayout(); toast('เพิ่ม "' + (t ? t.label : BLOCK_TYPES[x.dataset.add].label) + '" แล้ว · กรอกข้อมูลในแท็บ 3'); });
   el.querySelectorAll('[data-pre]').forEach(x => x.onclick = () => { if (!x.dataset.sure) { el.querySelectorAll('[data-pre]').forEach(y => { if (y.dataset.sure) { delete y.dataset.sure; y.textContent = PRESETS[y.dataset.pre].label; } }); x.dataset.sure = 1; x.textContent = 'แทนที่โครงทั้งหมด? กดอีกครั้ง'; return; }
     r.blocks = PRESETS[x.dataset.pre].make(); cfg.preset = x.dataset.pre; cfgDirty(); markDirty(); renderLayout(); toast('ใช้แบบฟอร์มแล้ว'); });
@@ -359,6 +368,7 @@ function editorOf(b) {
     <div class="row" style="margin-top:8px"><button class="btn sm" data-x="add">+ เพิ่มจุด</button><button class="btn sm" data-x="bulk">วางรายชื่อจุดหลายบรรทัด</button><button class="btn sm" data-x="zero">ล้างเป็น 0</button>${p ? '<button class="btn sm" data-x="copy">คัดลอกตัวเลขจากเดือนก่อน</button>' : ''}</div>
     <div class="bulk" style="display:none"><textarea rows="6" placeholder="วางรายชื่อจุด บรรทัดละ 1 จุด"></textarea><div class="row"><button class="btn sm pri" data-x="bulkok">ใช้รายชื่อนี้</button><span class="hint">แทนที่ชื่อจุดเดิมตามลำดับ และเพิ่มจุดใหม่ถ้ายาวกว่าเดิม</span></div></div>
     <label class="f" style="margin-top:10px">หมายเหตุท้ายตาราง<textarea data-t="note" rows="2">${esc(b.note || '')}</textarea></label>
+    <div class="row" style="margin-top:8px"><button class="btn sm" data-tsave>💾 บันทึกโครงตารางนี้เป็นแบบสำเร็จรูป (ใช้กับลูกค้าอื่นได้)</button>${b.tpl && USER_TPL.some(t => t.key === b.tpl) ? '<button class="btn sm" data-tupd>อัปเดตแบบเดิมด้วยโครงนี้</button>' : ''}</div>
     <h3 class="libh">แผนผังตำแหน่งจุดของตารางนี้ (Layout)</h3>${layoutEd(b, 'แนบ Layout ตำแหน่งจุด')}`; }
   if (b.type === 'sections') { const pl = [...new Set([...cpests(), ...b.items.map(s => s.pest).filter(Boolean)])]; const miss = cpests().filter(p => !b.items.some(s => s.pest === p));
     return `<div class="row" style="margin-bottom:8px">${miss.length ? `<button class="btn sm pri" data-x="fill">+ เพิ่มหัวข้อให้แมลงในสัญญาที่ยังไม่มี (${esc(miss.join(', '))})</button>` : '<span class="pill ok">มีหัวข้อครบทุกแมลงตามสัญญา</span>'}<span class="hint">เลือกชนิดสัตว์พาหะและระดับความเสี่ยง → ผลการตรวจและข้อเสนอแนะเติมให้ตามระดับ แก้ไขต่อได้</span></div>
@@ -502,6 +512,8 @@ function bindEditor(box, b) {
   }
   if (b.type === 'sign') { const t = box.querySelector('[data-techs]'); t.oninput = () => { b.techs = lines(t.value); markDirty(); }; }
   if (b.type === 'stations' || b.type === 'image') bindLayout(box, b, re);
+  if (b.type === 'stations') { const ts = box.querySelector('[data-tsave]'); if (ts) ts.onclick = () => { const t = tplFromBlock(b, 'u' + uid()); USER_TPL.push(t); b.tpl = t.key; markDirty(); saveTpl(); re(); };
+    const tu = box.querySelector('[data-tupd]'); if (tu) tu.onclick = () => { const i = USER_TPL.findIndex(t => t.key === b.tpl); const o = USER_TPL[i]; USER_TPL[i] = Object.assign(tplFromBlock(b, b.tpl), { icon: o.icon, label: o.label, desc: o.desc }); saveTpl(); }; }
   if (b.type === 'photos') {
     const fi = $('#fileIn'); const d = box.querySelector('[data-drop]');
     const take = fs => { fs = fs.filter(f => f.type.startsWith('image/')); if (!fs.length) return;
@@ -598,6 +610,37 @@ async function showList() {
     if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'ลบลูกค้าและรายงานทั้งหมด? กดอีกครั้ง'; setTimeout(() => { if (b.isConnected) { delete b.dataset.sure; b.textContent = 'ลบลูกค้า'; } }, 5000); return; }
     b.disabled = true; try { await rpc('lad_custom_delete', { p_site: b.dataset.delc }); toast('ลบ ' + b.dataset.n + ' แล้ว'); showList(); } catch (e) { toast('ลบไม่สำเร็จ: ' + e.message); b.disabled = false; } });
 }
+/* ───────── คลังแบบตารางสถานี (ใช้ร่วมทุกลูกค้า) ───────── */
+const TPL_SITE = 'lib-custom';
+async function loadTpl() { try { const b = await rpc('lad_bootstrap', { p_site: TPL_SITE }); USER_TPL = ((b.config || {}).stationTpl) || []; if (document.querySelector('#tplLib')) renderLayout(); } catch (e) { } }
+async function saveTpl() { try { await rpc('lad_save_config', { p_site: TPL_SITE, p_config: { stationTpl: USER_TPL } }); toast('บันทึกแบบตารางแล้ว ใช้ได้กับทุกลูกค้า'); } catch (e) { toast('บันทึกแบบตารางไม่สำเร็จ: ' + e.message); } }
+const tplFromBlock = (b, key) => ({ key, icon: '📋', label: b.title, desc: `${b.cols.join(', ')} (${b.unit || ''}) · ${b.rows.length} จุด`, title: b.title, unit: b.unit, cols: [...b.cols], found: b.found && b.showFound !== false ? [...b.found] : null,
+  locs: b.rows.map(r => r.loc), n: b.rows.length, agg: b.agg || 'sum', max: b.max != null ? b.max : '', alert: b.alert, action: b.action, chartTitle: b.chartTitle, showRemark: b.showRemark !== false });
+function tplForm(t) {
+  const v = (k, d) => esc(t[k] != null ? t[k] : d);
+  return `<div class="card tplf" id="tplForm"><h2>${t._new ? 'สร้างแบบตารางสถานีใหม่' : 'แก้ไขแบบตาราง: ' + esc(t.label)}</h2>
+  <div class="grid2"><label class="f">ชื่อแบบ / หัวตารางในรายงาน<input data-tf="label" value="${v('label', '')}" placeholder="เช่น รายงานการตรวจเช็คกับดักนก"></label>
+  <label class="f">ไอคอน<input data-tf="icon" value="${v('icon', '📋')}" style="width:80px"></label>
+  <label class="f">หน่วยนับ<input data-tf="unit" value="${v('unit', 'ตัว')}"></label>
+  <label class="f">คอลัมน์ตัวเลข (ชนิดแมลง/สิ่งที่นับ — คั่นด้วย , หรือขึ้นบรรทัดใหม่)<textarea data-tf="cols" rows="2">${esc((t.cols || ['จำนวนที่พบ (ตัว)']).join(', '))}</textarea></label>
+  <label class="f">คำว่า "พบ" (เว้นว่าง = ไม่มีคอลัมน์พบ/ไม่พบ)<input data-tf="f0" value="${esc(t.found ? t.found[0] : 'พบ')}"></label>
+  <label class="f">คำว่า "ไม่พบ"<input data-tf="f1" value="${esc(t.found ? t.found[1] : 'ไม่พบ')}"></label>
+  <label class="f">ชื่อจุด (1 บรรทัดต่อ 1 จุด)<textarea data-tf="locs" rows="4">${esc((t.locs && t.locs.length ? t.locs : Array.from({ length: +t.n || 5 }, (_, i) => (t.prefix || 'จุดที่ ') + (i + 1))).join('\n'))}</textarea></label>
+  <label class="f">แถวสรุปและกราฟ<select data-tf="agg"><option value="sum" ${t.agg !== 'avg' ? 'selected' : ''}>ผลรวม</option><option value="avg" ${t.agg === 'avg' ? 'selected' : ''}>ค่าเฉลี่ยต่อจุด</option></select></label>
+  <label class="f">ค่าสูงสุดที่กรอกได้ (เว้นว่าง = ไม่จำกัด)<input data-tf="max" type="number" value="${v('max', '')}"></label>
+  <label class="f">Alert limit<input data-tf="alert" type="number" value="${v('alert', '')}"></label><label class="f">Action limit<input data-tf="action" type="number" value="${v('action', '')}"></label>
+  <label class="f">หัวกราฟ<input data-tf="chartTitle" value="${v('chartTitle', 'จำนวนที่พบในแต่ละเดือน')}"></label>
+  <label class="f">คำอธิบายสั้นบนปุ่ม<input data-tf="desc" value="${v('desc', '')}"></label></div>
+  <div class="row" style="margin-top:10px"><button class="btn pri" data-tfs>บันทึกแบบตาราง</button><button class="btn" data-tfc>ยกเลิก</button></div></div>`;
+}
+function bindTplForm(el, t, done) {
+  const g = k => el.querySelector(`[data-tf="${k}"]`).value.trim(); el.querySelector('[data-tfc]').onclick = () => done(false);
+  el.querySelector('[data-tfs]').onclick = () => { const label = g('label'); const cols = g('cols').split(/[,\n]/).map(s => s.trim()).filter(Boolean); const locs = g('locs').split('\n').map(s => s.trim()).filter(Boolean);
+    if (!label || !cols.length || !locs.length) { toast('กรอกชื่อแบบ คอลัมน์ และชื่อจุดอย่างน้อย 1 รายการ'); return; }
+    const num = k => g(k) === '' ? null : +g(k);
+    const o = { key: t.key || 'u' + uid(), icon: g('icon') || '📋', label, title: label, desc: g('desc') || `${cols.join(', ')} · ${locs.length} จุด`, unit: g('unit'), cols, found: g('f0') ? [g('f0'), g('f1') || 'ไม่' + g('f0')] : null, locs, n: locs.length, agg: g('agg'), max: num('max'), alert: num('alert'), action: num('action'), chartTitle: g('chartTitle'), showRemark: t.showRemark !== false };
+    const i = USER_TPL.findIndex(x => x.key === o.key); if (i >= 0) USER_TPL[i] = o; else USER_TPL.push(o); saveTpl(); done(true); };
+}
 /* ───────── boot ───────── */
 function buildSelectors() {
   const ys = $('#selYear'); ys.innerHTML = ''; for (let y = 2026; y <= 2029; y++) ys.add(new Option(y + 543, y)); ys.value = Y;
@@ -611,7 +654,7 @@ function renderAll() { $('#selYear').value = Y; $('#selMonth').value = M; render
 async function openSite(id) {
   await flush(); SITE = id; document.body.classList.remove('listmode'); setStatus('กำลังโหลด…');
   Object.keys(reports).forEach(k => delete reports[k]);
-  try { const b = await rpc('lad_bootstrap', { p_site: id }); cfg = b.config || {}; const o = await rpc('lad_year', { p_site: id, p_from: '2025-01', p_to: '2029-12' }) || {}; Object.entries(o).forEach(([k, v]) => reports[k] = v); }
+  try { loadTpl(); const b = await rpc('lad_bootstrap', { p_site: id }); cfg = b.config || {}; const o = await rpc('lad_year', { p_site: id, p_from: '2025-01', p_to: '2029-12' }) || {}; Object.entries(o).forEach(([k, v]) => reports[k] = v); }
   catch (e) { toast('ไม่พบลูกค้ารายนี้'); location.hash = ''; return; }
   $('#appTitle').textContent = 'รายงาน Custom · ' + (cfg.client || '');
   const now = new Date(); Y = now.getFullYear(); M = now.getMonth() + 1;

@@ -52,19 +52,28 @@ function newBlock(type, extra) {
   return Object.assign(b, extra || {});
 }
 const ST = (title, unit, cols, found, locs, extra) => newBlock('stations', Object.assign({ title, unit, cols, found, showFound: !!found, rows: locs.map(l => ({ loc: l, v: cols.map(() => 0), rem: '' })) }, extra || {}));
-/* ───── แบบตารางสถานีสำเร็จรูป ───── */
-const STATION_TPL = {
-  bait: { icon: '🐀', label: 'รายงานการวางกล่องเหยื่อพิษกำจัดหนู', desc: 'จำนวนเหยื่อที่ถูกกัดแทะ (ก้อน) รายกล่อง',
-    make: x => ST('รายงานการวางกล่องเหยื่อพิษกำจัดหนู', 'ก้อน', ['จำนวนที่ถูกกัดแทะ (ก้อน)'], ['กัดแทะเหยื่อ', 'ไม่กัดแทะเหยื่อ'], Array.from({ length: 5 }, (_, i) => 'กล่องเหยื่อที่ ' + (i + 1)), Object.assign({ tpl: 'bait', chartTitle: 'จำนวนเหยื่อพิษที่ถูกกัดแทะในแต่ละเดือน' }, x)) },
-  glue: { icon: '🪤', label: 'รายงานการติดกล่องกาวดักหนู', desc: 'จำนวนหนูที่ติดกล่องกาว (ตัว) รายกล่อง',
-    make: x => ST('รายงานการติดกล่องกาวดักหนู', 'ตัว', ['จำนวนหนูที่ติด (ตัว)'], ['ติด', 'ไม่ติด'], Array.from({ length: 5 }, (_, i) => 'กล่องกาวที่ ' + (i + 1)), Object.assign({ tpl: 'glue', chartTitle: 'จำนวนหนูที่ติดกล่องกาวในแต่ละเดือน' }, x)) },
-  crst: { icon: '🪳', label: 'รายงานการติดบ้านแมลงสาบ', desc: 'จำนวนแมลงสาบที่ติดบ้านแมลงสาบ แยกชนิด (ตัว)',
-    make: x => ST('รายงานการติดบ้านแมลงสาบ', 'ตัว', ['แมลงสาบอเมริกัน', 'แมลงสาบเยอรมัน'], ['พบ', 'ไม่พบ'], Array.from({ length: 5 }, (_, i) => 'บ้านแมลงสาบที่ ' + (i + 1)), Object.assign({ tpl: 'crst', chartTitle: 'จำนวนแมลงสาบที่ติดบ้านแมลงสาบในแต่ละเดือน' }, x)) },
-  ilt: { icon: '🪰', label: 'รายงานการติดแมลงของแผ่นกาว (เครื่องดักแมลง)', desc: 'จำนวนแมลงบนแผ่นกาวแยกชนิด รายเครื่อง พร้อม Alert/Action limit',
-    make: x => ST('รายงานการติดแมลงของแผ่นกาว (เครื่องดักแมลง)', 'ตัว', ['แมลงวัน', 'แมลงหวี่', 'ยุง', 'ผีเสื้อกลางคืน', 'แมลงอื่น ๆ'], null, Array.from({ length: 3 }, (_, i) => 'เครื่องดักแมลงที่ ' + (i + 1)), Object.assign({ tpl: 'ilt', showRemark: false, chartTitle: 'จำนวนแมลงที่ติดแผ่นกาวในแต่ละเดือน' }, x)) },
-  ttb: { icon: '🐜', label: 'รายงานการกินเหยื่อกำจัดปลวก', desc: 'เปอร์เซ็นต์การกินเหยื่อรายสถานี (0–100%) กราฟเป็นค่าเฉลี่ย',
-    make: x => ST('รายงานการกินเหยื่อกำจัดปลวก', '%', ['การกินเหยื่อ (%)'], ['พบปลวก', 'ไม่พบปลวก'], Array.from({ length: 5 }, (_, i) => 'สถานีเหยื่อปลวกที่ ' + (i + 1)), Object.assign({ tpl: 'ttb', agg: 'avg', max: 100, chartTitle: 'ค่าเฉลี่ยการกินเหยื่อปลวกในแต่ละเดือน' }, x)) }
-};
+/* ───── แบบตารางสถานีสำเร็จรูป (เก็บเป็นข้อมูล เพื่อให้สร้าง/แก้แบบใหม่เองได้) ─────
+   key, icon, label, desc, unit, cols[], found [พบ, ไม่พบ] | null, n จุด, prefix ชื่อจุด, locs[] (ถ้ากำหนดชื่อจุดเอง),
+   agg 'sum' | 'avg', max, alert, action, chartTitle, showRemark */
+const BUILTIN_TPL = [
+  { key: 'bait', icon: '🐀', label: 'รายงานการวางกล่องเหยื่อพิษกำจัดหนู', desc: 'จำนวนเหยื่อที่ถูกกัดแทะ (ก้อน) รายกล่อง', unit: 'ก้อน', cols: ['จำนวนที่ถูกกัดแทะ (ก้อน)'], found: ['กัดแทะเหยื่อ', 'ไม่กัดแทะเหยื่อ'], n: 5, prefix: 'กล่องเหยื่อที่ ', chartTitle: 'จำนวนเหยื่อพิษที่ถูกกัดแทะในแต่ละเดือน' },
+  { key: 'glue', icon: '🪤', label: 'รายงานการติดกล่องกาวดักหนู', desc: 'จำนวนหนูที่ติดกล่องกาว (ตัว) รายกล่อง', unit: 'ตัว', cols: ['จำนวนหนูที่ติด (ตัว)'], found: ['ติด', 'ไม่ติด'], n: 5, prefix: 'กล่องกาวที่ ', chartTitle: 'จำนวนหนูที่ติดกล่องกาวในแต่ละเดือน' },
+  { key: 'crst', icon: '🪳', label: 'รายงานการติดบ้านแมลงสาบ', desc: 'จำนวนแมลงสาบที่ติดบ้านแมลงสาบ แยกชนิด (ตัว)', unit: 'ตัว', cols: ['แมลงสาบอเมริกัน', 'แมลงสาบเยอรมัน'], found: ['พบ', 'ไม่พบ'], n: 5, prefix: 'บ้านแมลงสาบที่ ', chartTitle: 'จำนวนแมลงสาบที่ติดบ้านแมลงสาบในแต่ละเดือน' },
+  { key: 'ilt', icon: '🪰', label: 'รายงานการติดแมลงของแผ่นกาว (เครื่องดักแมลง)', desc: 'จำนวนแมลงบนแผ่นกาวแยกชนิด รายเครื่อง พร้อม Alert/Action limit', unit: 'ตัว', cols: ['แมลงวัน', 'แมลงหวี่', 'ยุง', 'ผีเสื้อกลางคืน', 'แมลงอื่น ๆ'], found: null, n: 3, prefix: 'เครื่องดักแมลงที่ ', showRemark: false, chartTitle: 'จำนวนแมลงที่ติดแผ่นกาวในแต่ละเดือน' },
+  { key: 'ttb', icon: '🐜', label: 'รายงานการกินเหยื่อกำจัดปลวก', desc: 'เปอร์เซ็นต์การกินเหยื่อรายสถานี (0–100%) กราฟเป็นค่าเฉลี่ย', unit: '%', cols: ['การกินเหยื่อ (%)'], found: ['พบปลวก', 'ไม่พบปลวก'], n: 5, prefix: 'สถานีเหยื่อปลวกที่ ', agg: 'avg', max: 100, chartTitle: 'ค่าเฉลี่ยการกินเหยื่อปลวกในแต่ละเดือน' },
+  { key: 'gecko', icon: '🦎', label: 'รายงานการตรวจเช็คสถานีจิ้งจก', desc: 'จำนวนจิ้งจกที่ติดกาวดักจิ้งจก (ตัว) รายสถานี', unit: 'ตัว', cols: ['จำนวนจิ้งจกที่ติด (ตัว)'], found: ['พบ', 'ไม่พบ'], n: 5, prefix: 'สถานีจิ้งจกที่ ', chartTitle: 'จำนวนจิ้งจกที่ติดสถานีในแต่ละเดือน' }
+];
+let USER_TPL = [];   /* แบบที่ผู้ใช้สร้างเอง (โหลดจากฐานข้อมูล lib-custom ใช้ร่วมทุกลูกค้า) */
+const allTpl = () => [...BUILTIN_TPL, ...USER_TPL];
+const tplOf = k => allTpl().find(t => t.key === k);
+function tplMake(t, x) {
+  const locs = (t.locs && t.locs.length) ? t.locs : Array.from({ length: Math.max(1, +t.n || 1) }, (_, i) => (t.prefix || 'จุดที่ ') + (i + 1));
+  const ex = { tpl: t.key, chartTitle: t.chartTitle || ('จำนวนที่พบในแต่ละเดือน') };
+  if (t.agg === 'avg') ex.agg = 'avg'; if (t.max != null && t.max !== '') ex.max = +t.max; if (t.showRemark === false) ex.showRemark = false;
+  if (t.alert != null && t.alert !== '') ex.alert = +t.alert; if (t.action != null && t.action !== '') ex.action = +t.action;
+  return ST(t.title || t.label, t.unit || '', [...t.cols], t.found ? [...t.found] : null, locs, Object.assign(ex, x));
+}
+const STATION_TPL = new Proxy({}, { get: (_, k) => { const t = tplOf(k); return t && Object.assign({}, t, { make: x => tplMake(t, x) }); }, ownKeys: () => allTpl().map(t => t.key), getOwnPropertyDescriptor: (_, k) => tplOf(k) ? { enumerable: true, configurable: true } : undefined });
 const PRESETS = {
   standard: { label: 'มาตรฐาน (สารเคมี + สรุปผล + รูป)', make: () => [newBlock('cover'), newBlock('chem'), newBlock('sign', { newPage: false }), newBlock('sections'), newBlock('photos')] },
   stations: { label: 'ตารางสถานีครบชุด (เหยื่อพิษ / กล่องกาว / บ้านแมลงสาบ / แผ่นกาว / เหยื่อปลวก + แผนผัง)', make: () => [newBlock('cover'),
