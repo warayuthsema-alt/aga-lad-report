@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>สรุปกลุ่ม LINE</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#6b7280;--line:#e5e7eb;--red:#dc2626;--amb:#d97706;--grn:#16a34a;--acc:#06c755}
+  @media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b22;--ink:#e8eaf0;--mute:#9aa1ad;--line:#2a2f3a}}
+  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Sarabun,system-ui,sans-serif}
+  header{position:sticky;top:0;background:var(--bg);padding:14px 16px 8px;border-bottom:1px solid var(--line);z-index:2}
+  h1{font-size:19px;margin:0 0 8px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  select,input,button{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+  button{cursor:pointer}button.p{background:var(--acc);color:#fff;border-color:var(--acc)}
+  main{max-width:820px;margin:0 auto;padding:12px 14px 60px}
+  .list{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px}
+  .chip{white-space:nowrap;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:13px}
+  .chip.on{background:var(--ink);color:var(--bg)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+  .stat b{display:block;font-size:22px}.stat span{font-size:12px;color:var(--mute)}
+  .ov{font-size:16px}
+  .urg{border-left:4px solid var(--red)}.urg li{margin:4px 0}
+  .g h3{margin:0 0 4px;font-size:16px;display:flex;justify-content:space-between;gap:8px}
+  .g .n{color:var(--mute);font-weight:400;font-size:13px}
+  .lv{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+  .todo{margin:6px 0 0;padding-left:18px;color:var(--ink)}.todo li::marker{content:"☐ "}
+  .mute{color:var(--mute);font-size:13px}.err{color:var(--red)}
+  @media (max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>📋 สรุปความเคลื่อนไหวกลุ่ม LINE</h1>
+  <div class="bar">
+    <input id="q" placeholder="ค้นหากลุ่ม/เรื่อง…" style="flex:1;min-width:140px">
+    <select id="lvl"><option value="">ทุกระดับ</option><option>ด่วน</option><option>ติดตาม</option><option>ปกติ</option></select>
+    <button id="reload">↻</button>
+  </div>
+  <div class="list" id="rounds"></div>
+</header>
+<main id="main"><p class="mute">กำลังโหลด…</p></main>
+<script>
+const API = "https://yjnqijreqldfvwwrjdhv.supabase.co/functions/v1/group-summary";
+let rows = [], cur = 0;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const LV = { "ด่วน": "var(--red)", "ติดตาม": "var(--amb)", "ปกติ": "var(--grn)" };
+const fmt = (iso) => new Date(iso).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+function getKey() {
+  const m = location.hash.match(/k=([\w-]+)/);
+  if (m) { try { localStorage.setItem("lineSummaryKey", m[1]); } catch {} return m[1]; }
+  try { return localStorage.getItem("lineSummaryKey") || ""; } catch { return ""; }
+}
+
+async function load() {
+  const key = getKey();
+  if (!key) { $("main").innerHTML = '<div class="card">🔒 เปิดหน้านี้จากลิงก์ "ดูย้อนหลัง" ในข้อความสรุปที่ส่งเข้า LINE ส่วนตัว</div>'; return; }
+  $("main").innerHTML = '<p class="mute">กำลังโหลด…</p>';
+  try {
+    const r = await fetch(`${API}?key=${encodeURIComponent(key)}&limit=60`);
+    if (r.status === 401) { try { localStorage.removeItem("lineSummaryKey"); } catch {} $("main").innerHTML = '<div class="card err">ลิงก์ไม่ถูกต้องหรือหมดอายุ — เปิดใหม่จากลิงก์ในข้อความสรุปล่าสุด</div>'; return; }
+    rows = (await r.json()).filter((x) => x.summary?.ai_ok !== false && !String(x.summary?.overview || "").startsWith("(AI"));
+    cur = 0; renderRounds(); render();
+  } catch (e) {
+    $("main").innerHTML = `<div class="card err">โหลดไม่สำเร็จ: ${esc(e?.message || e)} — กด ↻ ลองใหม่</div>`;
+  }
+}
+
+function renderRounds() {
+  $("rounds").innerHTML = rows.map((r, i) => `<span class="chip ${i === cur ? "on" : ""}" data-i="${i}">${esc(r.slot)} ${fmt(r.period_end)}</span>`).join("") || '<span class="mute">ยังไม่มีรอบสรุป (รอบแรก 08:00 / 17:00)</span>';
+  document.querySelectorAll(".chip").forEach((c) => c.onclick = () => { cur = +c.dataset.i; renderRounds(); render(); });
+}
+
+function render() {
+  const r = rows[cur];
+  if (!r) { $("main").innerHTML = '<div class="card mute">ยังไม่มีข้อมูลสรุป ระบบจะสรุปรอบแรกเวลา 08:00 หรือ 17:00</div>'; return; }
+  const s = r.summary || {};
+  const q = $("q").value.trim().toLowerCase(), lv = $("lvl").value;
+  const groups = (s.groups || []).filter((g) => (!lv || g.level === lv) && (!q || JSON.stringify(g).toLowerCase().includes(q)));
+  let h = `<p class="mute">ช่วง ${fmt(r.period_start)} – ${fmt(r.period_end)}</p>
+  <div class="stats">
+    <div class="stat"><b>${s.msg_count ?? 0}</b><span>ข้อความ</span></div>
+    <div class="stat"><b>${s.active_groups ?? 0}</b><span>กลุ่มเคลื่อนไหว</span></div>
+    <div class="stat"><b>${s.opened ?? 0} / ${s.closed ?? 0}</b><span>คอมเพลน ใหม่/ปิด</span></div>
+    <div class="stat"><b>${s.open_total ?? 0}</b><span>งานค้างรวม</span></div>
+  </div>
+  <div class="card ov">🧭 ${esc(s.overview)}</div>`;
+  if ((s.urgent || []).length) h += `<div class="card urg"><b>🚨 ต้องดูด่วน</b><ul>${s.urgent.map((u) => `<li><b>[${esc(u.group)}]</b> ${esc(u.item)}</li>`).join("")}</ul></div>`;
+  h += groups.map((g) => `<div class="card g"><h3><span><span class="lv" style="background:${LV[g.level] || "var(--mute)"}"></span>${esc(g.group)}</span><span class="n">${s.counts?.[g.group] ?? ""} ข้อความ</span></h3>
+    <div>${esc(g.summary)}</div>${(g.todo || []).length ? `<ul class="todo">${g.todo.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}</div>`).join("");
+  if (!groups.length) h += '<p class="mute">ไม่มีกลุ่มที่ตรงกับตัวกรอง</p>';
+  if ((s.quiet || []).length) h += `<p class="mute">💤 เงียบ: ${s.quiet.map(esc).join(", ")}</p>`;
+  $("main").innerHTML = h;
+}
+
+$("q").oninput = render; $("lvl").onchange = render; $("reload").onclick = load;
+load();
+</script>
+</body>
+</html>
