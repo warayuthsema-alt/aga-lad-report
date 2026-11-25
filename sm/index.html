@@ -59,6 +59,16 @@ input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px;border
 .center{text-align:center}
 .spin{width:34px;height:34px;border:4px solid #cfe3d7;border-top-color:var(--g);border-radius:50%;animation:s 1s linear infinite;margin:40px auto}
 @keyframes s{to{transform:rotate(360deg)}}
+.ph{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.ph div,.ph a{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#e2e8f0;display:block}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph .rm{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;font-size:15px;line-height:26px;padding:0}
+.ph .add{display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed var(--g2);background:#f0f8f3;color:var(--g);font-weight:700;font-size:13px;cursor:pointer}
+.ph .add span{font-size:30px}
+.ph2{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.ph2 a{width:58px;height:58px;border-radius:8px;overflow:hidden;display:block;background:#e2e8f0}.ph2 img{width:100%;height:100%;object-fit:cover}
+#zoom{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9;flex-direction:column;gap:12px;color:#fff;padding:20px}
+#zoom img{max-width:100%;max-height:70vh;border-radius:8px;image-rendering:auto}
+#zoom a{color:#bef264}
 .pend{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:14px;margin-top:10px}
 </style>
 </head>
@@ -87,20 +97,22 @@ async function get(path) {
 }
 const qs = new URLSearchParams(location.search);
 const assetKey = qs.get("a");
-let asset, tpl, people = [], pending = [];
+let asset, tpl, people = [], pending = [], GAS = "";
+const PHOTO_KEY = "sm-photo-2569", MAX_PH = 6, MIN_PH = 1;
 
 async function main() {
   try {
     if (!assetKey) return listView();
     const [a, p] = await Promise.all([
       get("sm_assets?asset_key=eq." + encodeURIComponent(assetKey) + "&select=*"),
-      get("sm_people?select=name,role&order=name")
+      get("sm_people?select=name,role&order=name"),
+      get("sm_config?k=eq.public_gas_url&select=v").then(r => { GAS = (r[0] && r[0].v) || ""; }).catch(() => {})
     ]);
     if (!a.length) { $("#app").innerHTML = `<div class="card err">ไม่พบอุปกรณ์รหัส <b>${esc(assetKey)}</b><br><small>ให้แอดมินกด "ซิงก์ออนไลน์" ในโปรแกรม Smart Maintenance แล้วสแกนใหม่</small></div><p class="center"><a href="./">ดูรายการอุปกรณ์ทั้งหมด</a></p>`; return; }
     asset = a[0]; people = p;
     const [t, pd] = await Promise.all([
       get("sm_templates?template_id=eq." + encodeURIComponent(asset.template_id) + "&select=*"),
-      get("sm_submissions?asset_key=eq." + encodeURIComponent(assetKey) + "&select=id,insp_date,inspector,results,created_at&order=created_at.desc")
+      get("sm_submissions?asset_key=eq." + encodeURIComponent(assetKey) + "&select=id,insp_date,inspector,results,photos,created_at&order=created_at.desc")
     ]);
     tpl = t[0] || { title: asset.category, items: [], mode: "normal" }; pending = pd;
     statusView();
@@ -112,6 +124,53 @@ function lab(v) {
   if (v === "normal") return `<span class="pill ok">${have ? "มี" : "ปกติ"}</span>`;
   if (v === "abnormal") return `<span class="pill ng">${have ? "ไม่มี" : "ไม่ปกติ"}</span>`;
   return `<span class="pill na">-</span>`;
+}
+
+function phStrip(ph) {
+  if (!ph || !ph.length) return "";
+  return `<div class="ph2">${ph.map(p => `<a href="#" data-t="${esc(p.t)}" data-u="${esc(p.u || "")}"><img src="${esc(p.t)}" alt="รูปตรวจเช็ค" loading="lazy"></a>`).join("")}</div>`;
+}
+function bindZoom() {
+  document.querySelectorAll(".ph2 a").forEach(a => a.onclick = ev => {
+    ev.preventDefault();
+    const z = document.createElement("div"); z.id = "zoom";
+    z.innerHTML = `<img src="${esc(a.dataset.t)}"><div>${a.dataset.u ? `<a href="${esc(a.dataset.u)}" target="_blank" rel="noopener">เปิดภาพต้นฉบับ (Google Drive)</a>` : "ภาพย่อสำหรับแสดงผล"}</div><div class="mut" style="color:#ddd">แตะเพื่อปิด</div>`;
+    z.onclick = e => { if (e.target.tagName !== "A") z.remove(); };
+    document.body.appendChild(z);
+  });
+}
+
+// ---------- รูปถ่าย: ย่อเป็นภาพเล็กสุดสำหรับ Supabase, ต้นฉบับส่ง Google Drive ----------
+function loadImg(file) {
+  return new Promise((ok, no) => { const u = URL.createObjectURL(file); const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error("เปิดรูปไม่ได้")); i.src = u; });
+}
+function draw(img, max) {
+  const r = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(img.naturalWidth * r)); c.height = Math.max(1, Math.round(img.naturalHeight * r));
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); return c;
+}
+async function makeThumb(file) {
+  const img = await loadImg(file);
+  const c = draw(img, 200);
+  let d = c.toDataURL("image/webp", 0.4);
+  if (!d.startsWith("data:image/webp")) d = c.toDataURL("image/jpeg", 0.45);
+  return { img, thumb: d };
+}
+const toB64 = blob => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = () => no(r.error); r.readAsDataURL(blob); });
+async function original(p) {
+  // เก็บไฟล์ต้นฉบับ; ถ้าใหญ่เกิน 12 MB หรือเป็นชนิดที่เบราว์เซอร์อ่านไม่ได้ จึงแปลงเป็น JPEG คุณภาพสูง
+  const f = p.file, type = f.type || "image/jpeg";
+  if (f.size <= 12 * 1024 * 1024 && /^image\/(jpeg|png|webp|heic|heif)$/.test(type)) return { mime: type, data: await toB64(f) };
+  const c = draw(p.img, 4000);
+  const b = await new Promise(ok => c.toBlob(ok, "image/jpeg", 0.92));
+  return { mime: "image/jpeg", data: await toB64(b) };
+}
+async function uploadOriginal(p, n, insp) {
+  const o = await original(p);
+  const r = await fetch(GAS, { method: "POST", body: JSON.stringify({ key: PHOTO_KEY, date: todayISO(), code: asset.asset_code, name: asset.name, inspector: insp, n, mime: o.mime, data: o.data }) });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || "อัปโหลดไม่สำเร็จ");
+  return j;
 }
 
 function statusView() {
@@ -127,12 +186,12 @@ function statusView() {
     ${asset.last_mgr !== null ? `<div>ผู้จัดการ</div><div>${asset.last_mgr ? "✔ " + esc(asset.last_mgr) : "<span class='mut'>รอลงนาม</span>"}</div>` : ""}
     <div>กำหนดตรวจถัดไป</div><div>${thd(asset.next_due)}</div>
     ${asset.holder ? `<div>ผู้รับผิดชอบ</div><div>${esc(asset.holder)}</div>` : ""}</div>
-    ${pending.length ? `<div class="pend">📱 มีผลตรวจจากมือถือ ${pending.length} รายการ (ล่าสุด ${thd(pending[0].insp_date)} โดย ${esc(pending[0].inspector)}) รอแอดมินนำเข้าโปรแกรม</div>` : ""}
+    ${pending.length ? `<div class="pend">📱 มีผลตรวจจากมือถือ ${pending.length} รายการ (ล่าสุด ${thd(pending[0].insp_date)} โดย ${esc(pending[0].inspector)}) รอแอดมินนำเข้าโปรแกรม${phStrip(pending[0].photos)}</div>` : ""}
   </div>`;
   if (bad.length) h += `<div class="card"><h2>จุดที่พบชำรุด (รอบล่าสุด)</h2>${bad.map(i => `<div class="it"><span class="n">${i.no}.</span><span class="x">${esc(i.name)}<small>${esc(i.criteria || "")}</small></span>${lab("abnormal")}</div>`).join("")}</div>`;
   h += `<div class="card"><h2>ผลตรวจรอบล่าสุด <span class="mut">${thd(asset.last_date)}</span></h2>${(tpl.items || []).map(i => `<div class="it"><span class="n">${i.no}.</span><span class="x">${esc(i.name)}</span>${lab(res[i.no])}</div>`).join("") || "<span class='mut'>ยังไม่มีข้อมูล</span>"}</div>`;
   const rc = asset.recent || [];
-  if (rc.length) h += `<div class="card"><h2>ประวัติตรวจเช็คล่าสุด</h2>${rc.map(r => `<div class="rd"><b>${thd(r.date)}</b> • ${r.ok ? "<span style='color:var(--ok)'>" + esc(r.status) + "</span>" : "<span style='color:var(--ng)'>" + esc(r.status) + "</span>"} <span class="mut">โดย ${esc(r.inspector || "-")}</span>${r.bad ? `<div class="mut">ไม่ปกติ: ${esc(r.bad)}</div>` : ""}</div>`).join("")}</div>`;
+  if (rc.length) h += `<div class="card"><h2>ประวัติตรวจเช็คล่าสุด</h2>${rc.map(r => `<div class="rd"><b>${thd(r.date)}</b> • ${r.ok ? "<span style='color:var(--ok)'>" + esc(r.status) + "</span>" : "<span style='color:var(--ng)'>" + esc(r.status) + "</span>"} <span class="mut">โดย ${esc(r.inspector || "-")}</span>${r.bad ? `<div class="mut">ไม่ปกติ: ${esc(r.bad)}</div>` : ""}${phStrip(r.photos)}</div>`).join("")}</div>`;
   const rp = asset.repairs || [];
   h += `<div class="card"><h2>ประวัติส่งซ่อม <span class="mut">${rp.length} ครั้ง</span></h2>${rp.length ? rp.map(r => `<div class="rd"><b>${thd(r.date)}</b> ${r.cost ? "<span class='mut'>• " + Number(r.cost).toLocaleString("th-TH") + " บาท</span>" : ""}<div>${esc(r.detail)}</div></div>`).join("") : "<span class='mut'>ไม่มีประวัติส่งซ่อม</span>"}</div>`;
   h += `<p class="mut center">ข้อมูลจากโปรแกรม ณ ${new Date(asset.updated_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}<br><a href="./">รายการอุปกรณ์ทั้งหมด</a></p>`;
@@ -140,6 +199,7 @@ function statusView() {
   $("#bar").hidden = false;
   $("#barIn").innerHTML = `<button class="btn p" id="go">📝 ตรวจเช็คความพร้อมวันนี้</button>`;
   $("#go").onclick = formView;
+  bindZoom();
   scrollTo(0, 0);
 }
 
@@ -151,6 +211,9 @@ function formView() {
   <div class="card"><h2>รายการตรวจเช็ค <button class="pill ok" id="allok" style="border:none">✔ ${have ? "มี" : "ปกติ"}ทุกข้อ</button></h2>
   ${tpl.items.map(i => `<div class="q" data-no="${i.no}"><b>${i.no}. ${esc(i.name)}</b><small>${esc(i.criteria || "")}</small>
     <div class="seg"><button type="button" data-v="normal" class="g">${have ? "มี" : "ปกติ"}</button><button type="button" data-v="abnormal" class="r">${have ? "ไม่มี" : "ไม่ปกติ"}</button></div></div>`).join("")}</div>
+  <div class="card"><h2>📷 ถ่ายภาพบันทึก * <span class="mut" id="phn">0/${MAX_PH}</span></h2>
+  <div class="mut">ถ่ายอย่างน้อย ${MIN_PH} รูป (สภาพอุปกรณ์ / จุดชำรุด) • ต้นฉบับเก็บใน Google Drive</div>
+  <div class="ph" id="ph"></div><input type="file" id="cam" accept="image/*" capture="environment" hidden><input type="file" id="gal" accept="image/*" multiple hidden></div>
   <div class="card"><label class="f">ผู้ตรวจเช็ค *</label><input id="insp" list="pl" value="${esc(last)}" placeholder="ชื่อ-นามสกุล ผู้ตรวจ" autocomplete="name">
   <datalist id="pl">${people.map(p => `<option value="${esc(p.name)}">`).join("")}</datalist>
   <label class="f">หมายเหตุ (ถ้ามี)</label><textarea id="note" rows="2" maxlength="500" placeholder="เช่น อาการที่พบ / ส่งซ่อมแล้ว"></textarea></div>`;
@@ -158,6 +221,24 @@ function formView() {
   const paint = () => document.querySelectorAll(".q").forEach(q => q.querySelectorAll("button").forEach(b => b.classList.toggle("on", vals[q.dataset.no] === b.dataset.v)));
   document.querySelectorAll(".q button").forEach(b => b.onclick = () => { vals[b.closest(".q").dataset.no] = b.dataset.v; paint(); });
   $("#allok").onclick = () => { tpl.items.forEach(i => vals[i.no] = "normal"); paint(); };
+  const photos = [];
+  const drawPh = () => {
+    $("#phn").textContent = photos.length + "/" + MAX_PH;
+    $("#ph").innerHTML = photos.map((p, i) => `<div><img src="${p.thumb}"><button type="button" class="rm" data-i="${i}">✕</button></div>`).join("") +
+      (photos.length < MAX_PH ? `<div class="add" id="addCam"><span>📷</span>ถ่ายรูป</div><div class="add" id="addGal"><span>🖼️</span>เลือกจากเครื่อง</div>` : "");
+    document.querySelectorAll("#ph .rm").forEach(b => b.onclick = () => { photos.splice(+b.dataset.i, 1); drawPh(); });
+    if ($("#addCam")) { $("#addCam").onclick = () => $("#cam").click(); $("#addGal").onclick = () => $("#gal").click(); }
+  };
+  const addFiles = async files => {
+    for (const f of files) {
+      if (photos.length >= MAX_PH) break;
+      try { const t = await makeThumb(f); photos.push({ file: f, img: t.img, thumb: t.thumb }); } catch (e) { alert(e.message); }
+    }
+    drawPh();
+  };
+  $("#cam").onchange = e => { addFiles([...e.target.files]); e.target.value = ""; };
+  $("#gal").onchange = e => { addFiles([...e.target.files]); e.target.value = ""; };
+  drawPh();
   $("#barIn").innerHTML = `<div style="display:flex;gap:8px"><button class="btn s" id="back" style="flex:1">ยกเลิก</button><button class="btn p" id="send" style="flex:2">ส่งผลตรวจ</button></div>`;
   $("#back").onclick = statusView;
   $("#send").onclick = async () => {
@@ -165,15 +246,29 @@ function formView() {
     const insp = $("#insp").value.trim();
     if (left.length) { alert("ยังไม่ได้ตรวจ " + left.length + " ข้อ: " + left.map(i => i.no).join(", ")); return; }
     if (insp.length < 2) { alert("กรุณาใส่ชื่อผู้ตรวจเช็ค"); $("#insp").focus(); return; }
+    if (photos.length < MIN_PH) { alert("กรุณาถ่ายภาพบันทึกอย่างน้อย " + MIN_PH + " รูป"); return; }
     const btn = $("#send"); btn.disabled = true; btn.textContent = "กำลังส่ง...";
     try {
-      const body = { asset_key: asset.asset_key, asset_code: asset.asset_code, template_id: asset.template_id, insp_date: todayISO(), inspector: insp, results: vals, note: $("#note").value.trim() || null };
+      const ph = [];
+      let failed = 0;
+      for (let i = 0; i < photos.length; i++) {
+        const p = photos[i], item = { t: p.thumb };
+        if (GAS && !p.id) {
+          btn.textContent = "อัปโหลดรูป " + (i + 1) + "/" + photos.length + "...";
+          try { const j = await uploadOriginal(p, i + 1, insp); p.id = j.id; p.u = j.url; } catch (e) { failed++; }
+        }
+        if (p.id) { item.id = p.id; item.u = p.u; }
+        ph.push(item);
+      }
+      if (GAS && failed && !confirm("อัปโหลดภาพต้นฉบับไม่สำเร็จ " + failed + " รูป (สัญญาณอินเทอร์เน็ต?)\nกด ตกลง = ส่งผลตรวจพร้อมภาพย่อ\nกด ยกเลิก = ลองส่งใหม่")) throw new Error("ยกเลิกการส่ง — ลองกดส่งใหม่อีกครั้ง");
+      btn.textContent = "กำลังส่งผลตรวจ...";
+      const body = { asset_key: asset.asset_key, asset_code: asset.asset_code, template_id: asset.template_id, insp_date: todayISO(), inspector: insp, results: vals, note: $("#note").value.trim() || null, photos: ph };
       const r = await fetch(SB + "sm_submissions", { method: "POST", headers: { ...H, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error("ส่งไม่สำเร็จ (" + r.status + ") " + (await r.text()).slice(0, 120));
       localStorage.setItem("sm_inspector", insp);
       const bad = tpl.items.filter(i => vals[i.no] === "abnormal");
       $("#app").innerHTML = `<div class="card center"><div style="font-size:54px">${bad.length ? "⚠️" : "✅"}</div><div class="t">ส่งผลตรวจเรียบร้อย</div>
-        <p>${esc(asset.asset_code)} • ${esc(asset.name)}<br>${thd(todayISO())} โดย ${esc(insp)}</p>
+        <p>${esc(asset.asset_code)} • ${esc(asset.name)}<br>${thd(todayISO())} โดย ${esc(insp)}<br><span class="mut">ภาพบันทึก ${ph.length} รูป${ph.some(x => x.u) ? " • ต้นฉบับเก็บใน Google Drive แล้ว" : ""}</span></p>
         <div class="badge ${bad.length ? "ng" : "ok"}" style="justify-content:center">${bad.length ? (tpl.mode === "have" ? "ขาด " : "พบจุดชำรุด ") + bad.length + " ข้อ" : (tpl.mode === "have" ? "อุปกรณ์ครบ" : "ปกติ พร้อมใช้งาน")}</div>
         ${bad.length ? `<p class="mut" style="text-align:left">${bad.map(i => i.no + ". " + esc(i.name)).join("<br>")}</p><p><b>แจ้งหัวหน้างานเพื่อดำเนินการซ่อม</b></p>` : ""}
         <p class="mut">ผลตรวจจะเข้าโปรแกรมเมื่อแอดมินกด "ซิงก์ออนไลน์" แล้วหัวหน้างานลงนาม</p></div>`;
