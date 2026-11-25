@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#034832">
+<title>ตรวจสอบความพร้อมอุปกรณ์ • Smart Maintenance</title>
+<link rel="icon" href="../img/logo.png">
+<style>
+@font-face{font-family:Sarabun;src:url(../fonts/sarabun-thai-400-normal.woff2) format("woff2");font-weight:400;unicode-range:U+0E00-0E7F}
+@font-face{font-family:Sarabun;src:url(../fonts/sarabun-thai-700-normal.woff2) format("woff2");font-weight:700;unicode-range:U+0E00-0E7F}
+@font-face{font-family:Sarabun;src:url(../fonts/sarabun-latin-400-normal.woff2) format("woff2");font-weight:400}
+@font-face{font-family:Sarabun;src:url(../fonts/sarabun-latin-700-normal.woff2) format("woff2");font-weight:700}
+:root{--g:#034832;--g2:#0a6e4b;--lime:#8dc63f;--bg:#f2f7f4;--ok:#15803d;--okbg:#dcfce7;--ng:#b91c1c;--ngbg:#fee2e2;--warn:#b45309;--warnbg:#fef3c7;--mut:#64748b;--line:#d7e6dd}
+*{box-sizing:border-box}
+body{margin:0;font-family:Sarabun,'Leelawadee UI',Tahoma,sans-serif;background:var(--bg);color:#0f172a;font-size:16px;-webkit-tap-highlight-color:transparent}
+header{background:var(--g);color:#fff;padding:10px 14px 9px;display:flex;align-items:center;gap:10px;border-bottom:4px solid var(--lime);position:sticky;top:0;z-index:5}
+header .lg{background:#fff;border-radius:8px;padding:3px 6px;height:38px;display:flex;align-items:center}
+header .lg img{height:30px}
+header h1{font-size:16px;margin:0;line-height:1.2}
+header small{opacity:.8;font-size:12px}
+main{max-width:640px;margin:0 auto;padding:12px 12px 90px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.badge{display:flex;align-items:center;gap:12px;border-radius:12px;padding:14px;font-weight:700;font-size:20px}
+.badge .ic{font-size:34px;line-height:1}
+.badge small{display:block;font-weight:400;font-size:13px;opacity:.85}
+.ok{background:var(--okbg);color:var(--ok)} .ng{background:var(--ngbg);color:var(--ng)} .wa{background:var(--warnbg);color:var(--warn)} .na{background:#e2e8f0;color:#334155}
+.t{font-size:20px;font-weight:700;margin:2px 0 2px}
+.code{font-family:ui-monospace,Consolas,monospace;font-size:14px;color:var(--g2);font-weight:700}
+.kv{display:grid;grid-template-columns:118px 1fr;gap:6px 10px;font-size:14.5px;margin-top:10px}
+.kv div:nth-child(odd){color:var(--mut)}
+h2{font-size:15px;color:var(--g);margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
+.it{display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-top:1px solid #eef2ef;font-size:14.5px}
+.it:first-of-type{border-top:none}
+.it .n{color:var(--mut);min-width:22px}
+.it .x{flex:1}
+.it .x small{display:block;color:var(--mut);font-size:12.5px}
+.pill{font-size:12.5px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.btn{display:block;width:100%;border:none;border-radius:12px;padding:15px;font:inherit;font-weight:700;font-size:17px;cursor:pointer}
+.btn.p{background:var(--g);color:#fff} .btn.s{background:#fff;color:var(--g);border:2px solid var(--g)}
+.btn:disabled{opacity:.5}
+.bar{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.96);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:5}
+.bar .in{max-width:640px;margin:0 auto}
+.seg{display:flex;gap:6px;margin-top:6px}
+.seg button{flex:1;border:2px solid var(--line);background:#fff;border-radius:10px;padding:10px 4px;font:inherit;font-weight:700;font-size:15px;color:#334155}
+.seg button.on.g{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.seg button.on.r{background:var(--ngbg);border-color:var(--ng);color:var(--ng)}
+.q{padding:12px 0;border-top:1px solid #eef2ef} .q:first-of-type{border-top:none}
+.q b{font-size:15px} .q small{display:block;color:var(--mut);font-size:12.5px}
+label.f{display:block;font-size:14px;color:var(--mut);margin:10px 0 4px}
+input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px;border:1px solid #cbd5d0;border-radius:10px;background:#fff}
+.mut{color:var(--mut);font-size:13px}
+.rd{font-size:14px;padding:8px 0;border-top:1px solid #eef2ef} .rd:first-of-type{border-top:none}
+.rd b{color:var(--g)}
+.ls a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 2px;border-top:1px solid #eef2ef;color:inherit;text-decoration:none}
+.ls a:first-child{border-top:none}
+.dot{width:11px;height:11px;border-radius:50%;flex:none}
+.err{background:var(--ngbg);color:var(--ng);padding:12px;border-radius:10px}
+.center{text-align:center}
+.spin{width:34px;height:34px;border:4px solid #cfe3d7;border-top-color:var(--g);border-radius:50%;animation:s 1s linear infinite;margin:40px auto}
+@keyframes s{to{transform:rotate(360deg)}}
+.pend{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:14px;margin-top:10px}
+</style>
+</head>
+<body>
+<header><div class="lg"><img src="../img/logo.png" alt="Advance"></div><div><h1>ตรวจสอบความพร้อมอุปกรณ์</h1><small>Smart Maintenance • สาขาลาดพร้าว</small></div></header>
+<main id="app"><div class="spin"></div></main>
+<div class="bar" id="bar" hidden><div class="in" id="barIn"></div></div>
+<script>
+"use strict";
+const SB = "https://zhdigumxkjfvrkkmqqpk.supabase.co/rest/v1/";
+const KEY = "sb_publishable_MTkVxwcz5UOVcnXJ4i1WBQ_QllM4MuY";
+const H = { apikey: KEY, Authorization: "Bearer " + KEY };
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const TM = ["", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+const thd = s => { if (!s) return "-"; const [y, m, d] = s.slice(0, 10).split("-").map(Number); return d + " " + TM[m] + " " + (y + 543 - 2500); };
+const todayISO = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+const ST = {
+  ready: ["ok", "✅", "พร้อมใช้งาน"], broken: ["ng", "⛔", "ชำรุด / ไม่พร้อมใช้งาน"],
+  overdue: ["wa", "⏰", "เกินกำหนดตรวจ"], nodata: ["na", "❔", "ยังไม่มีผลตรวจ"]
+};
+async function get(path) {
+  const r = await fetch(SB + path, { headers: H });
+  if (!r.ok) throw new Error("โหลดข้อมูลไม่สำเร็จ (" + r.status + ")");
+  return r.json();
+}
+const qs = new URLSearchParams(location.search);
+const assetKey = qs.get("a");
+let asset, tpl, people = [], pending = [];
+
+async function main() {
+  try {
+    if (!assetKey) return listView();
+    const [a, p] = await Promise.all([
+      get("sm_assets?asset_key=eq." + encodeURIComponent(assetKey) + "&select=*"),
+      get("sm_people?select=name,role&order=name")
+    ]);
+    if (!a.length) { $("#app").innerHTML = `<div class="card err">ไม่พบอุปกรณ์รหัส <b>${esc(assetKey)}</b><br><small>ให้แอดมินกด "ซิงก์ออนไลน์" ในโปรแกรม Smart Maintenance แล้วสแกนใหม่</small></div><p class="center"><a href="./">ดูรายการอุปกรณ์ทั้งหมด</a></p>`; return; }
+    asset = a[0]; people = p;
+    const [t, pd] = await Promise.all([
+      get("sm_templates?template_id=eq." + encodeURIComponent(asset.template_id) + "&select=*"),
+      get("sm_submissions?asset_key=eq." + encodeURIComponent(assetKey) + "&select=id,insp_date,inspector,results,created_at&order=created_at.desc")
+    ]);
+    tpl = t[0] || { title: asset.category, items: [], mode: "normal" }; pending = pd;
+    statusView();
+  } catch (e) { $("#app").innerHTML = `<div class="card err">${esc(e.message)}<br><small>ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่</small></div>`; }
+}
+
+function lab(v) {
+  const have = tpl && tpl.mode === "have";
+  if (v === "normal") return `<span class="pill ok">${have ? "มี" : "ปกติ"}</span>`;
+  if (v === "abnormal") return `<span class="pill ng">${have ? "ไม่มี" : "ไม่ปกติ"}</span>`;
+  return `<span class="pill na">-</span>`;
+}
+
+function statusView() {
+  const s = ST[asset.status] || ST.nodata;
+  document.title = asset.asset_code + " • " + s[2];
+  const res = asset.last_results || {};
+  const bad = (tpl.items || []).filter(i => res[i.no] === "abnormal");
+  let h = `<div class="card"><div class="badge ${s[0]}"><span class="ic">${s[1]}</span><div>${s[2]}<small>${esc(asset.status_text || "")}</small></div></div>
+    <div style="margin-top:12px"><div class="code">${esc(asset.asset_code)}</div><div class="t">${esc(asset.name)}</div><div class="mut">${esc(tpl.title || asset.category || "")} • ${esc(asset.template_id || "")}</div></div>
+    <div class="kv"><div>ตรวจล่าสุด</div><div><b>${thd(asset.last_date)}</b></div>
+    <div>ผู้ตรวจเช็ค</div><div>${esc(asset.last_inspector || "-")}</div>
+    <div>หัวหน้างาน</div><div>${asset.last_sup ? "✔ " + esc(asset.last_sup) : "<span class='mut'>รอลงนาม</span>"}</div>
+    ${asset.last_mgr !== null ? `<div>ผู้จัดการ</div><div>${asset.last_mgr ? "✔ " + esc(asset.last_mgr) : "<span class='mut'>รอลงนาม</span>"}</div>` : ""}
+    <div>กำหนดตรวจถัดไป</div><div>${thd(asset.next_due)}</div>
+    ${asset.holder ? `<div>ผู้รับผิดชอบ</div><div>${esc(asset.holder)}</div>` : ""}</div>
+    ${pending.length ? `<div class="pend">📱 มีผลตรวจจากมือถือ ${pending.length} รายการ (ล่าสุด ${thd(pending[0].insp_date)} โดย ${esc(pending[0].inspector)}) รอแอดมินนำเข้าโปรแกรม</div>` : ""}
+  </div>`;
+  if (bad.length) h += `<div class="card"><h2>จุดที่พบชำรุด (รอบล่าสุด)</h2>${bad.map(i => `<div class="it"><span class="n">${i.no}.</span><span class="x">${esc(i.name)}<small>${esc(i.criteria || "")}</small></span>${lab("abnormal")}</div>`).join("")}</div>`;
+  h += `<div class="card"><h2>ผลตรวจรอบล่าสุด <span class="mut">${thd(asset.last_date)}</span></h2>${(tpl.items || []).map(i => `<div class="it"><span class="n">${i.no}.</span><span class="x">${esc(i.name)}</span>${lab(res[i.no])}</div>`).join("") || "<span class='mut'>ยังไม่มีข้อมูล</span>"}</div>`;
+  const rc = asset.recent || [];
+  if (rc.length) h += `<div class="card"><h2>ประวัติตรวจเช็คล่าสุด</h2>${rc.map(r => `<div class="rd"><b>${thd(r.date)}</b> • ${r.ok ? "<span style='color:var(--ok)'>" + esc(r.status) + "</span>" : "<span style='color:var(--ng)'>" + esc(r.status) + "</span>"} <span class="mut">โดย ${esc(r.inspector || "-")}</span>${r.bad ? `<div class="mut">ไม่ปกติ: ${esc(r.bad)}</div>` : ""}</div>`).join("")}</div>`;
+  const rp = asset.repairs || [];
+  h += `<div class="card"><h2>ประวัติส่งซ่อม <span class="mut">${rp.length} ครั้ง</span></h2>${rp.length ? rp.map(r => `<div class="rd"><b>${thd(r.date)}</b> ${r.cost ? "<span class='mut'>• " + Number(r.cost).toLocaleString("th-TH") + " บาท</span>" : ""}<div>${esc(r.detail)}</div></div>`).join("") : "<span class='mut'>ไม่มีประวัติส่งซ่อม</span>"}</div>`;
+  h += `<p class="mut center">ข้อมูลจากโปรแกรม ณ ${new Date(asset.updated_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}<br><a href="./">รายการอุปกรณ์ทั้งหมด</a></p>`;
+  $("#app").innerHTML = h;
+  $("#bar").hidden = false;
+  $("#barIn").innerHTML = `<button class="btn p" id="go">📝 ตรวจเช็คความพร้อมวันนี้</button>`;
+  $("#go").onclick = formView;
+  scrollTo(0, 0);
+}
+
+function formView() {
+  const have = tpl.mode === "have";
+  const vals = {};
+  const last = localStorage.getItem("sm_inspector") || "";
+  let h = `<div class="card"><div class="code">${esc(asset.asset_code)}</div><div class="t">${esc(asset.name)}</div><div class="mut">${esc(tpl.title)} • วันที่ ${thd(todayISO())}</div></div>
+  <div class="card"><h2>รายการตรวจเช็ค <button class="pill ok" id="allok" style="border:none">✔ ${have ? "มี" : "ปกติ"}ทุกข้อ</button></h2>
+  ${tpl.items.map(i => `<div class="q" data-no="${i.no}"><b>${i.no}. ${esc(i.name)}</b><small>${esc(i.criteria || "")}</small>
+    <div class="seg"><button type="button" data-v="normal" class="g">${have ? "มี" : "ปกติ"}</button><button type="button" data-v="abnormal" class="r">${have ? "ไม่มี" : "ไม่ปกติ"}</button></div></div>`).join("")}</div>
+  <div class="card"><label class="f">ผู้ตรวจเช็ค *</label><input id="insp" list="pl" value="${esc(last)}" placeholder="ชื่อ-นามสกุล ผู้ตรวจ" autocomplete="name">
+  <datalist id="pl">${people.map(p => `<option value="${esc(p.name)}">`).join("")}</datalist>
+  <label class="f">หมายเหตุ (ถ้ามี)</label><textarea id="note" rows="2" maxlength="500" placeholder="เช่น อาการที่พบ / ส่งซ่อมแล้ว"></textarea></div>`;
+  $("#app").innerHTML = h;
+  const paint = () => document.querySelectorAll(".q").forEach(q => q.querySelectorAll("button").forEach(b => b.classList.toggle("on", vals[q.dataset.no] === b.dataset.v)));
+  document.querySelectorAll(".q button").forEach(b => b.onclick = () => { vals[b.closest(".q").dataset.no] = b.dataset.v; paint(); });
+  $("#allok").onclick = () => { tpl.items.forEach(i => vals[i.no] = "normal"); paint(); };
+  $("#barIn").innerHTML = `<div style="display:flex;gap:8px"><button class="btn s" id="back" style="flex:1">ยกเลิก</button><button class="btn p" id="send" style="flex:2">ส่งผลตรวจ</button></div>`;
+  $("#back").onclick = statusView;
+  $("#send").onclick = async () => {
+    const left = tpl.items.filter(i => !vals[i.no]);
+    const insp = $("#insp").value.trim();
+    if (left.length) { alert("ยังไม่ได้ตรวจ " + left.length + " ข้อ: " + left.map(i => i.no).join(", ")); return; }
+    if (insp.length < 2) { alert("กรุณาใส่ชื่อผู้ตรวจเช็ค"); $("#insp").focus(); return; }
+    const btn = $("#send"); btn.disabled = true; btn.textContent = "กำลังส่ง...";
+    try {
+      const body = { asset_key: asset.asset_key, asset_code: asset.asset_code, template_id: asset.template_id, insp_date: todayISO(), inspector: insp, results: vals, note: $("#note").value.trim() || null };
+      const r = await fetch(SB + "sm_submissions", { method: "POST", headers: { ...H, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error("ส่งไม่สำเร็จ (" + r.status + ") " + (await r.text()).slice(0, 120));
+      localStorage.setItem("sm_inspector", insp);
+      const bad = tpl.items.filter(i => vals[i.no] === "abnormal");
+      $("#app").innerHTML = `<div class="card center"><div style="font-size:54px">${bad.length ? "⚠️" : "✅"}</div><div class="t">ส่งผลตรวจเรียบร้อย</div>
+        <p>${esc(asset.asset_code)} • ${esc(asset.name)}<br>${thd(todayISO())} โดย ${esc(insp)}</p>
+        <div class="badge ${bad.length ? "ng" : "ok"}" style="justify-content:center">${bad.length ? (tpl.mode === "have" ? "ขาด " : "พบจุดชำรุด ") + bad.length + " ข้อ" : (tpl.mode === "have" ? "อุปกรณ์ครบ" : "ปกติ พร้อมใช้งาน")}</div>
+        ${bad.length ? `<p class="mut" style="text-align:left">${bad.map(i => i.no + ". " + esc(i.name)).join("<br>")}</p><p><b>แจ้งหัวหน้างานเพื่อดำเนินการซ่อม</b></p>` : ""}
+        <p class="mut">ผลตรวจจะเข้าโปรแกรมเมื่อแอดมินกด "ซิงก์ออนไลน์" แล้วหัวหน้างานลงนาม</p></div>`;
+      $("#barIn").innerHTML = `<button class="btn s" onclick="location.reload()">กลับหน้าสถานะ</button>`;
+      scrollTo(0, 0);
+    } catch (e) { alert(e.message); btn.disabled = false; btn.textContent = "ส่งผลตรวจ"; }
+  };
+  scrollTo(0, 0);
+}
+
+async function listView() {
+  const list = await get("sm_assets?select=asset_key,asset_code,name,category,status,last_date&order=template_id,asset_code");
+  const col = { ready: "var(--ok)", broken: "var(--ng)", overdue: "var(--warn)", nodata: "#94a3b8" };
+  const cnt = k => list.filter(a => a.status === k).length;
+  const draw = f => {
+    const g = {};
+    list.filter(a => !f || (a.asset_code + a.name + a.category).toLowerCase().includes(f.toLowerCase())).forEach(a => (g[a.category] = g[a.category] || []).push(a));
+    $("#ls").innerHTML = Object.keys(g).map(c => `<div class="card"><h2>${esc(c)} <span class="mut">${g[c].length}</span></h2><div class="ls">${g[c].map(a => `<a href="?a=${encodeURIComponent(a.asset_key)}"><span style="display:flex;gap:8px;align-items:center;min-width:0"><span class="dot" style="background:${col[a.status] || "#94a3b8"}"></span><span style="min-width:0"><span class="code">${esc(a.asset_code)}</span><br><span style="font-size:14px">${esc(a.name)}</span></span></span><span class="mut" style="white-space:nowrap">${thd(a.last_date)}</span></a>`).join("")}</div></div>`).join("") || "<p class='mut center'>ไม่พบ</p>";
+  };
+  $("#app").innerHTML = `<div class="card"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">
+    <div class="badge ok" style="display:block;font-size:22px">${cnt("ready")}<small>พร้อมใช้</small></div><div class="badge ng" style="display:block;font-size:22px">${cnt("broken")}<small>ชำรุด</small></div><div class="badge wa" style="display:block;font-size:22px">${cnt("overdue")}<small>เกินกำหนด</small></div></div>
+    <input id="q" placeholder="🔍 ค้นหารหัส / ชื่ออุปกรณ์" style="margin-top:12px"></div><div id="ls"></div>`;
+  draw(""); $("#q").oninput = e => draw(e.target.value);
+}
+main();
+</script>
+</body>
+</html>
