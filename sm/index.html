@@ -85,6 +85,13 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const TM = ["", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 const thd = s => { if (!s) return "-"; const [y, m, d] = s.slice(0, 10).split("-").map(Number); return d + " " + TM[m] + " " + (y + 543 - 2500); };
+const ageText = iso => {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number), t = new Date(Date.now() + 7 * 3600e3);
+  let mo = (t.getUTCFullYear() - y) * 12 + (t.getUTCMonth() + 1 - m); if (t.getUTCDate() < d) mo--;
+  if (mo <= 0) return "ไม่ถึง 1 เดือน";
+  const yy = Math.floor(mo / 12), mm = mo % 12;
+  return (yy ? yy + " ปี" : "") + (yy && mm ? " " : "") + (mm ? mm + " เดือน" : "");
+};
 const todayISO = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
 const ST = {
   ready: ["ok", "✅", "พร้อมใช้งาน"], broken: ["ng", "⛔", "ชำรุด / ไม่พร้อมใช้งาน"],
@@ -185,6 +192,8 @@ function statusView() {
     <div>หัวหน้างาน</div><div>${asset.last_sup ? "✔ " + esc(asset.last_sup) : "<span class='mut'>รอลงนาม</span>"}</div>
     ${asset.last_mgr !== null ? `<div>ผู้จัดการ</div><div>${asset.last_mgr ? "✔ " + esc(asset.last_mgr) : "<span class='mut'>รอลงนาม</span>"}</div>` : ""}
     <div>กำหนดตรวจถัดไป</div><div>${thd(asset.next_due)}</div>
+    <div>สถานที่จัดเก็บ</div><div>📍 ${esc(asset.location || "-")}</div>
+    <div>วันที่ซื้อ / อายุ</div><div>${asset.purchase_date ? thd(asset.purchase_date) + " • <b>" + ageText(asset.purchase_date) + "</b>" : "-"}</div>
     ${asset.holder ? `<div>ผู้รับผิดชอบ</div><div>${esc(asset.holder)}</div>` : ""}</div>
     ${pending.length ? `<div class="pend">📱 มีผลตรวจจากมือถือ ${pending.length} รายการ (ล่าสุด ${thd(pending[0].insp_date)} โดย ${esc(pending[0].inspector)}) รอแอดมินนำเข้าโปรแกรม${phStrip(pending[0].photos)}</div>` : ""}
   </div>`;
@@ -280,13 +289,13 @@ function formView() {
 }
 
 async function listView() {
-  const list = await get("sm_assets?select=asset_key,asset_code,name,category,status,last_date&order=template_id,asset_code");
+  const list = await get("sm_assets?select=asset_key,asset_code,name,category,status,last_date,location&order=template_id,asset_code");
   const col = { ready: "var(--ok)", broken: "var(--ng)", overdue: "var(--warn)", nodata: "#94a3b8" };
   const cnt = k => list.filter(a => a.status === k).length;
   const draw = f => {
     const g = {};
-    list.filter(a => !f || (a.asset_code + a.name + a.category).toLowerCase().includes(f.toLowerCase())).forEach(a => (g[a.category] = g[a.category] || []).push(a));
-    $("#ls").innerHTML = Object.keys(g).map(c => `<div class="card"><h2>${esc(c)} <span class="mut">${g[c].length}</span></h2><div class="ls">${g[c].map(a => `<a href="?a=${encodeURIComponent(a.asset_key)}"><span style="display:flex;gap:8px;align-items:center;min-width:0"><span class="dot" style="background:${col[a.status] || "#94a3b8"}"></span><span style="min-width:0"><span class="code">${esc(a.asset_code)}</span><br><span style="font-size:14px">${esc(a.name)}</span></span></span><span class="mut" style="white-space:nowrap">${thd(a.last_date)}</span></a>`).join("")}</div></div>`).join("") || "<p class='mut center'>ไม่พบ</p>";
+    list.filter(a => !f || (a.asset_code + a.name + a.category + (a.location || "")).toLowerCase().includes(f.toLowerCase())).forEach(a => (g[a.category] = g[a.category] || []).push(a));
+    $("#ls").innerHTML = Object.keys(g).map(c => `<div class="card"><h2>${esc(c)} <span class="mut">${g[c].length}</span></h2><div class="ls">${g[c].map(a => `<a href="?a=${encodeURIComponent(a.asset_key)}"><span style="display:flex;gap:8px;align-items:center;min-width:0"><span class="dot" style="background:${col[a.status] || "#94a3b8"}"></span><span style="min-width:0"><span class="code">${esc(a.asset_code)}</span><br><span style="font-size:14px">${esc(a.name)}</span>${a.location ? `<br><span class="mut">📍 ${esc(a.location)}</span>` : ""}</span></span><span class="mut" style="white-space:nowrap">${thd(a.last_date)}</span></a>`).join("")}</div></div>`).join("") || "<p class='mut center'>ไม่พบ</p>";
   };
   $("#app").innerHTML = `<div class="card"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">
     <div class="badge ok" style="display:block;font-size:22px">${cnt("ready")}<small>พร้อมใช้</small></div><div class="badge ng" style="display:block;font-size:22px">${cnt("broken")}<small>ชำรุด</small></div><div class="badge wa" style="display:block;font-size:22px">${cnt("overdue")}<small>เกินกำหนด</small></div></div>
