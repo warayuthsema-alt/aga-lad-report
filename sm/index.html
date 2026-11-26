@@ -3,78 +3,209 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#034832">
+<meta name="theme-color" content="#034832" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#022a1e" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ตรวจอุปกรณ์">
+<meta name="format-detection" content="telephone=no">
 <title>ตรวจสอบความพร้อมอุปกรณ์ • Smart Maintenance</title>
-<link rel="icon" href="../img/logo.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
 <style>
-@font-face{font-family:Sarabun;src:url(../fonts/sarabun-thai-400-normal.woff2) format("woff2");font-weight:400;unicode-range:U+0E00-0E7F}
-@font-face{font-family:Sarabun;src:url(../fonts/sarabun-thai-700-normal.woff2) format("woff2");font-weight:700;unicode-range:U+0E00-0E7F}
-@font-face{font-family:Sarabun;src:url(../fonts/sarabun-latin-400-normal.woff2) format("woff2");font-weight:400}
-@font-face{font-family:Sarabun;src:url(../fonts/sarabun-latin-700-normal.woff2) format("woff2");font-weight:700}
-:root{--g:#034832;--g2:#0a6e4b;--lime:#8dc63f;--bg:#f2f7f4;--ok:#15803d;--okbg:#dcfce7;--ng:#b91c1c;--ngbg:#fee2e2;--warn:#b45309;--warnbg:#fef3c7;--mut:#64748b;--line:#d7e6dd}
+@font-face{font-family:Sarabun;src:url(../fonts/sarabun-thai-400-normal.woff2) format("woff2");font-weight:400;unicode-range:U+0E00-0E7F;font-display:swap}
+@font-face{font-family:Sarabun;src:url(../fonts/sarabun-thai-700-normal.woff2) format("woff2");font-weight:700;unicode-range:U+0E00-0E7F;font-display:swap}
+@font-face{font-family:Sarabun;src:url(../fonts/sarabun-latin-400-normal.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:Sarabun;src:url(../fonts/sarabun-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+
+/* ---------- Tokens ---------- */
+:root{
+  --g:#034832;--g2:#0a6e4b;--lime:#8dc63f;
+  --bg:#f2f7f4;--card:#fff;--ink:#0f172a;--mut:#5b6b7c;--line:#d7e6dd;--soft:#eef4f0;--field:#fff;--fieldline:#c4d3cb;
+  --ok:#15803d;--okbg:#dcfce7;--ng:#b91c1c;--ngbg:#fee2e2;--warn:#b45309;--warnbg:#fef3c7;--na:#334155;--nabg:#e2e8f0;
+  --r:14px;--tap:48px;--shadow:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(3,72,50,.05);
+  --safe-b:env(safe-area-inset-bottom,0px);--barh:76px;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0b1511;--card:#13201a;--ink:#e6efe9;--mut:#93a59b;--line:#24362d;--soft:#182a21;--field:#0f1b16;--fieldline:#2f4a3c;
+    --g2:#4fc08d;--ok:#4ade80;--okbg:#123222;--ng:#f87171;--ngbg:#3a1717;--warn:#fbbf24;--warnbg:#3a2c0d;--na:#cbd5e1;--nabg:#253241;
+    --shadow:none}
+}
 *{box-sizing:border-box}
-body{margin:0;font-family:Sarabun,'Leelawadee UI',Tahoma,sans-serif;background:var(--bg);color:#0f172a;font-size:16px;-webkit-tap-highlight-color:transparent}
-header{background:var(--g);color:#fff;padding:10px 14px 9px;display:flex;align-items:center;gap:10px;border-bottom:4px solid var(--lime);position:sticky;top:0;z-index:5}
-header .lg{background:#fff;border-radius:8px;padding:3px 6px;height:38px;display:flex;align-items:center}
-header .lg img{height:30px}
-header h1{font-size:16px;margin:0;line-height:1.2}
-header small{opacity:.8;font-size:12px}
-main{max-width:640px;margin:0 auto;padding:12px 12px 90px}
-.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-.badge{display:flex;align-items:center;gap:12px;border-radius:12px;padding:14px;font-weight:700;font-size:20px}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:Sarabun,'Leelawadee UI',Tahoma,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+a{color:var(--g2)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--lime);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- Header ---------- */
+header{background:var(--g);color:#fff;padding:calc(8px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right)) 8px max(14px,env(safe-area-inset-left));display:flex;align-items:center;gap:10px;border-bottom:4px solid var(--lime);position:sticky;top:0;z-index:6}
+header .lg{background:#fff;border-radius:8px;padding:3px 6px;height:38px;display:flex;align-items:center;flex:none}
+header .lg img{height:30px;display:block}
+header .ttl{min-width:0;flex:1}
+header h1{font-size:16px;margin:0;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header small{opacity:.8;font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hbtn{flex:none;min-width:var(--tap);height:40px;border-radius:10px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff;padding:0 12px;font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;text-decoration:none}
+.hbtn[hidden]{display:none}
+
+/* ---------- Layout ---------- */
+main{max-width:640px;margin:0 auto;padding:12px max(12px,env(safe-area-inset-left)) calc(var(--barh) + 24px + var(--safe-b)) max(12px,env(safe-area-inset-right))}
+.lay>*+*{margin-top:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:var(--shadow)}
+.card+.card{margin-top:12px}
+h2{font-size:15px;color:var(--g2);margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+
+/* ---------- Status ---------- */
+.badge{display:flex;align-items:center;gap:12px;border-radius:12px;padding:14px;font-weight:700;font-size:20px;line-height:1.25}
 .badge .ic{font-size:34px;line-height:1}
-.badge small{display:block;font-weight:400;font-size:13px;opacity:.85}
-.ok{background:var(--okbg);color:var(--ok)} .ng{background:var(--ngbg);color:var(--ng)} .wa{background:var(--warnbg);color:var(--warn)} .na{background:#e2e8f0;color:#334155}
-.t{font-size:20px;font-weight:700;margin:2px 0 2px}
-.code{font-family:ui-monospace,Consolas,monospace;font-size:14px;color:var(--g2);font-weight:700}
-.kv{display:grid;grid-template-columns:118px 1fr;gap:6px 10px;font-size:14.5px;margin-top:10px}
-.kv div:nth-child(odd){color:var(--mut)}
-h2{font-size:15px;color:var(--g);margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
-.it{display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-top:1px solid #eef2ef;font-size:14.5px}
+.badge small{display:block;font-weight:400;font-size:13px;opacity:.9;margin-top:2px}
+.ok{background:var(--okbg);color:var(--ok)} .ng{background:var(--ngbg);color:var(--ng)} .wa{background:var(--warnbg);color:var(--warn)} .na{background:var(--nabg);color:var(--na)}
+.t{font-size:20px;font-weight:700;margin:2px 0;line-height:1.25}
+.code{font-family:ui-monospace,Consolas,monospace;font-size:14px;color:var(--g2);font-weight:700;letter-spacing:.2px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:14.5px;margin-top:12px}
+.kv dt{color:var(--mut)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:13px;border-radius:999px;padding:4px 10px;background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+.chip.ng{background:var(--ngbg);color:var(--ng);border-color:transparent} .chip.ok{background:var(--okbg);color:var(--ok);border-color:transparent} .chip.wa{background:var(--warnbg);color:var(--warn);border-color:transparent}
+.it{display:flex;gap:8px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--soft);font-size:14.5px}
 .it:first-of-type{border-top:none}
 .it .n{color:var(--mut);min-width:22px}
-.it .x{flex:1}
+.it .x{flex:1;min-width:0}
 .it .x small{display:block;color:var(--mut);font-size:12.5px}
 .pill{font-size:12.5px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap}
-.btn{display:block;width:100%;border:none;border-radius:12px;padding:15px;font:inherit;font-weight:700;font-size:17px;cursor:pointer}
-.btn.p{background:var(--g);color:#fff} .btn.s{background:#fff;color:var(--g);border:2px solid var(--g)}
-.btn:disabled{opacity:.5}
-.bar{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.96);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:5}
-.bar .in{max-width:640px;margin:0 auto}
-.seg{display:flex;gap:6px;margin-top:6px}
-.seg button{flex:1;border:2px solid var(--line);background:#fff;border-radius:10px;padding:10px 4px;font:inherit;font-weight:700;font-size:15px;color:#334155}
-.seg button.on.g{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
-.seg button.on.r{background:var(--ngbg);border-color:var(--ng);color:var(--ng)}
-.q{padding:12px 0;border-top:1px solid #eef2ef} .q:first-of-type{border-top:none}
-.q b{font-size:15px} .q small{display:block;color:var(--mut);font-size:12.5px}
-label.f{display:block;font-size:14px;color:var(--mut);margin:10px 0 4px}
-input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px;border:1px solid #cbd5d0;border-radius:10px;background:#fff}
+.rd{font-size:14px;padding:9px 0;border-top:1px solid var(--soft)} .rd:first-of-type{border-top:none}
+.rd b{color:var(--g2)}
+.pend{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:14px;margin-top:12px}
 .mut{color:var(--mut);font-size:13px}
-.rd{font-size:14px;padding:8px 0;border-top:1px solid #eef2ef} .rd:first-of-type{border-top:none}
-.rd b{color:var(--g)}
-.ls a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 2px;border-top:1px solid #eef2ef;color:inherit;text-decoration:none}
-.ls a:first-child{border-top:none}
-.dot{width:11px;height:11px;border-radius:50%;flex:none}
-.err{background:var(--ngbg);color:var(--ng);padding:12px;border-radius:10px}
 .center{text-align:center}
-.spin{width:34px;height:34px;border:4px solid #cfe3d7;border-top-color:var(--g);border-radius:50%;animation:s 1s linear infinite;margin:40px auto}
-@keyframes s{to{transform:rotate(360deg)}}
-.ph{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
-.ph div,.ph a{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#e2e8f0;display:block}
+.err{background:var(--ngbg);color:var(--ng);padding:12px;border-radius:10px}
+details.more summary{cursor:pointer;color:var(--g2);font-weight:700;font-size:14px;padding:10px 0 2px;list-style:none;min-height:var(--tap);display:flex;align-items:center}
+details.more summary::-webkit-details-marker{display:none}
+details.more[open] summary{display:none}
+
+/* ---------- Buttons / bar ---------- */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:52px;border:none;border-radius:12px;padding:12px 14px;font-weight:700;font-size:17px;text-decoration:none}
+.btn.p{background:var(--g);color:#fff} .btn.s{background:var(--card);color:var(--g2);border:2px solid currentColor}
+@media (prefers-color-scheme:dark){.btn.p{background:#0d7a52}}
+.btn:disabled{opacity:.55}
+.btn:active{transform:translateY(1px)}
+.bar{position:fixed;left:0;right:0;bottom:0;background:color-mix(in srgb,var(--card) 94%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:10px max(12px,env(safe-area-inset-right)) calc(10px + var(--safe-b)) max(12px,env(safe-area-inset-left));z-index:5}
+.bar .in{max-width:640px;margin:0 auto}
+.row{display:flex;gap:8px}
+.prog{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--mut);margin-bottom:8px}
+.prog .tr{flex:1;height:6px;border-radius:99px;background:var(--soft);overflow:hidden}
+.prog .tr i{display:block;height:100%;background:var(--ok);width:0;transition:width .2s}
+.prog b{color:var(--ink)}
+
+/* ---------- Form ---------- */
+.items{display:grid;gap:0}
+.q{padding:12px 0;border-top:1px solid var(--soft);scroll-margin-top:80px}
+.q:first-child{border-top:none}
+.q b{font-size:15.5px} .q small{display:block;color:var(--mut);font-size:13px}
+.q.miss{background:linear-gradient(90deg,var(--warnbg),transparent);border-radius:8px;padding-left:8px;margin-left:-8px}
+.seg{display:flex;gap:8px;margin-top:8px}
+.seg button{flex:1;min-height:var(--tap);border:2px solid var(--line);background:var(--field);border-radius:10px;padding:8px 4px;font-weight:700;font-size:16px;color:var(--mut)}
+.seg button[aria-pressed=true].g{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.seg button[aria-pressed=true].r{background:var(--ngbg);border-color:var(--ng);color:var(--ng)}
+.qcam{display:none;margin-top:8px;font-size:13.5px;color:var(--ng);font-weight:700;background:none;border:1px dashed var(--ng);border-radius:10px;padding:8px 10px;min-height:40px}
+.q.bad .qcam{display:inline-flex;align-items:center;gap:6px}
+.allok{border:none;background:var(--okbg);color:var(--ok);font-weight:700;font-size:14px;border-radius:999px;padding:0 14px;min-height:40px}
+label.f{display:block;font-size:14px;color:var(--mut);margin:10px 0 4px}
+input,select,textarea{width:100%;font:inherit;font-size:16px;padding:12px;border:1px solid var(--fieldline);border-radius:10px;background:var(--field);color:var(--ink);min-height:var(--tap)}
+textarea{resize:vertical}
+.ph{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.ph>div{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--nabg)}
 .ph img{width:100%;height:100%;object-fit:cover;display:block}
-.ph .rm{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;font-size:15px;line-height:26px;padding:0}
-.ph .add{display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed var(--g2);background:#f0f8f3;color:var(--g);font-weight:700;font-size:13px;cursor:pointer}
-.ph .add span{font-size:30px}
-.ph2{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.ph2 a{width:58px;height:58px;border-radius:8px;overflow:hidden;display:block;background:#e2e8f0}.ph2 img{width:100%;height:100%;object-fit:cover}
-#zoom{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9;flex-direction:column;gap:12px;color:#fff;padding:20px}
-#zoom img{max-width:100%;max-height:70vh;border-radius:8px;image-rendering:auto}
-#zoom a{color:#bef264}
-.pend{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:14px;margin-top:10px}
+.ph .rm{position:absolute;top:4px;right:4px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(0,0,0,.62);color:#fff;font-size:16px;line-height:32px;padding:0}
+.ph .add{display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed var(--g2);background:var(--soft);color:var(--g2);font-weight:700;font-size:13px;width:100%;height:100%;border-radius:10px}
+.ph .add{gap:4px}.ph .add span{font-size:28px;line-height:1.2}
+.ph2{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.ph2 a{width:64px;height:64px;border-radius:8px;overflow:hidden;display:block;background:var(--nabg)}
+.ph2 img{width:100%;height:100%;object-fit:cover}
+.draft{font-size:13px;color:var(--mut);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.draft button{border:none;background:none;color:var(--g2);font-weight:700;min-height:40px}
+#zoom{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:9;flex-direction:column;gap:12px;color:#fff;padding:20px}
+#zoom img{max-width:100%;max-height:72vh;border-radius:8px}
+#zoom a{color:#bef264;font-weight:700}
+
+/* ---------- List ---------- */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+.stats button{border:2px solid transparent;border-radius:12px;padding:10px 4px;font-weight:700;font-size:22px;line-height:1.1;min-height:64px}
+.stats button small{display:block;font-weight:400;font-size:12.5px;margin-top:2px}
+.stats button[aria-pressed=true]{border-color:currentColor}
+.ls a{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 2px;min-height:56px;border-top:1px solid var(--soft);color:inherit;text-decoration:none}
+.ls a:first-child{border-top:none}
+.ls a:active{background:var(--soft)}
+.dot{width:12px;height:12px;border-radius:50%;flex:none}
+.groups{display:grid;gap:12px}
+.groups .card{margin:0}
+.search{position:relative;margin-top:12px}
+.search input{padding-left:40px}
+.search span{position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:.6}
+.spin{width:34px;height:34px;border:4px solid var(--line);border-top-color:var(--g2);border-radius:50%;animation:s 1s linear infinite;margin:40px auto}
+@keyframes s{to{transform:rotate(360deg)}}
+.skel{height:120px;border-radius:var(--r);background:linear-gradient(90deg,var(--soft),var(--card),var(--soft));background-size:200% 100%;animation:sk 1.2s infinite}
+@keyframes sk{to{background-position:-200% 0}}
+.foot{margin-top:14px}
+
+/* ---------- โทรศัพท์แนวนอน / จอเตี้ย ---------- */
+@media (max-height:500px) and (orientation:landscape){
+  header{padding-top:4px;padding-bottom:4px} header .lg{height:30px} header .lg img{height:22px} header small{display:none}
+  .badge{padding:10px} .badge .ic{font-size:26px}
+  :root{--barh:64px}
+  .btn{min-height:46px}
+}
+/* ---------- จอเล็กมาก ---------- */
+@media (max-width:359px){
+  .kv{grid-template-columns:1fr;gap:0 0} .kv dt{margin-top:6px;font-size:13px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  header h1{font-size:15px}
+}
+/* ---------- แท็บเล็ต ---------- */
+@media (min-width:700px){
+  main{max-width:860px;padding-top:18px}
+  .bar .in{max-width:860px}
+  .items{grid-template-columns:1fr 1fr;column-gap:20px}
+  .items .q:nth-child(2){border-top:none}
+  .ph{grid-template-columns:repeat(6,1fr)}
+  .groups{grid-template-columns:1fr 1fr;align-items:start}
+  .t{font-size:22px}
+}
+/* ---------- คอมพิวเตอร์ / แท็บเล็ตแนวนอน: 2 คอลัมน์ ---------- */
+@media (min-width:1024px){
+  main{max-width:1180px;padding-bottom:32px}
+  .lay{display:grid;grid-template-columns:400px minmax(0,1fr);gap:16px;align-items:start;grid-auto-flow:row dense}
+  .lay>*+*{margin-top:0}
+  .lay>.side{grid-column:1;position:sticky;top:76px}
+  .lay>.main{grid-column:2;grid-row:1 / span 50}
+  .lay>.main>.card+.card,.lay>.side>.card+.card{margin-top:16px}
+  .bar{position:static;background:none;backdrop-filter:none;border:none;padding:0;margin-top:12px}
+  .bar .in{max-width:none}
+  .side .bar{display:block}
+  .ph{grid-template-columns:repeat(3,1fr)}
+  .groups{grid-template-columns:repeat(3,1fr)}
+  .stats{max-width:560px}
+  .lsHead{display:flex;gap:16px;align-items:center}
+  .lsHead .search{flex:1;margin-top:0}
+}
+@media (hover:hover){
+  .ls a:hover{background:var(--soft)}
+  .btn.p:hover{filter:brightness(1.08)}
+  .seg button:hover{border-color:var(--fieldline)}
+}
+@media print{header,.bar,.hbtn{display:none}main{max-width:none;padding:0}.card{break-inside:avoid;box-shadow:none}}
 </style>
 </head>
 <body>
-<header><div class="lg"><img src="../img/logo.png" alt="Advance"></div><div><h1>ตรวจสอบความพร้อมอุปกรณ์</h1><small>Smart Maintenance • สาขาลาดพร้าว</small></div></header>
-<main id="app"><div class="spin"></div></main>
+<header>
+  <a class="hbtn" id="back" href="./" hidden aria-label="กลับไปรายการอุปกรณ์">‹ รายการ</a>
+  <div class="lg"><img src="../img/logo.png" alt="Advance Group Asia"></div>
+  <div class="ttl"><h1 id="htitle">ตรวจสอบความพร้อมอุปกรณ์</h1><small>Smart Maintenance • สาขาลาดพร้าว</small></div>
+</header>
+<main id="app" aria-live="polite"><div class="lay"><div class="skel"></div><div class="skel"></div></div></main>
 <div class="bar" id="bar" hidden><div class="in" id="barIn"></div></div>
 <script>
 "use strict";
@@ -82,6 +213,7 @@ const SB = "https://zhdigumxkjfvrkkmqqpk.supabase.co/rest/v1/";
 const KEY = "sb_publishable_MTkVxwcz5UOVcnXJ4i1WBQ_QllM4MuY";
 const H = { apikey: KEY, Authorization: "Bearer " + KEY };
 const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const TM = ["", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 const thd = s => { if (!s) return "-"; const [y, m, d] = s.slice(0, 10).split("-").map(Number); return d + " " + TM[m] + " " + (y + 543 - 2500); };
@@ -93,6 +225,10 @@ const ageText = iso => {
   return (yy ? yy + " ปี" : "") + (yy && mm ? " " : "") + (mm ? mm + " เดือน" : "");
 };
 const todayISO = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+const daysTo = iso => Math.round((Date.parse(iso.slice(0, 10)) - Date.parse(todayISO())) / 864e5);
+const dueText = iso => { if (!iso) return ""; const n = daysTo(iso); return n > 0 ? "อีก " + n + " วัน" : n === 0 ? "ครบกำหนดวันนี้" : "เกินกำหนด " + (-n) + " วัน"; };
+const buzz = () => { try { navigator.vibrate && navigator.vibrate(12); } catch (e) {} };
+const wide = matchMedia("(min-width:1024px)");
 const ST = {
   ready: ["ok", "✅", "พร้อมใช้งาน"], broken: ["ng", "⛔", "ชำรุด / ไม่พร้อมใช้งาน"],
   overdue: ["wa", "⏰", "เกินกำหนดตรวจ"], nodata: ["na", "❔", "ยังไม่มีผลตรวจ"]
@@ -107,23 +243,41 @@ const assetKey = qs.get("a");
 let asset, tpl, people = [], pending = [], GAS = "";
 const PHOTO_KEY = "sm-photo-2569", MAX_PH = 6, MIN_PH = 1;
 
+// แถบปุ่มล่าง: มือถือ/แท็บเล็ต = ติดขอบล่าง (นิ้วโป้งเอื้อมถึง), คอมพิวเตอร์ = อยู่ในคอลัมน์ซ้าย
+function placeBar() {
+  const bar = $("#bar"), slot = $("#barSlot");
+  if (wide.matches && slot) { if (bar.parentNode !== slot) slot.appendChild(bar); }
+  else if (bar.parentNode !== document.body) document.body.appendChild(bar);
+}
+wide.addEventListener ? wide.addEventListener("change", placeBar) : wide.addListener(placeBar);
+// เปลี่ยนเนื้อหา: ย้ายแถบปุ่มกลับมาที่ body ก่อน เพื่อไม่ให้ถูกลบไปพร้อมเนื้อหาเดิม
+const APP = { set html(v) { const bar = $("#bar"); if (bar.parentNode !== document.body) document.body.appendChild(bar); $("#app").innerHTML = v; } };
+function setBar(html) {
+  $("#barIn").innerHTML = html; $("#bar").hidden = !html; placeBar();
+  // เว้นที่ด้านล่างให้พอดีกับความสูงแถบปุ่ม (ไม่ให้บังเนื้อหา)
+  requestAnimationFrame(() => { $("#app").style.paddingBottom = !wide.matches && html ? ($("#bar").offsetHeight + 20) + "px" : ""; });
+}
+addEventListener("resize", () => { if (!$("#bar").hidden) $("#app").style.paddingBottom = !wide.matches ? ($("#bar").offsetHeight + 20) + "px" : ""; });
+
 async function main() {
   try {
     if (!assetKey) return listView();
+    $("#back").hidden = false;
     const [a, p] = await Promise.all([
       get("sm_assets?asset_key=eq." + encodeURIComponent(assetKey) + "&select=*"),
       get("sm_people?select=name,role&order=name"),
       get("sm_config?k=eq.public_gas_url&select=v").then(r => { GAS = (r[0] && r[0].v) || ""; }).catch(() => {})
     ]);
-    if (!a.length) { $("#app").innerHTML = `<div class="card err">ไม่พบอุปกรณ์รหัส <b>${esc(assetKey)}</b><br><small>ให้แอดมินกด "ซิงก์ออนไลน์" ในโปรแกรม Smart Maintenance แล้วสแกนใหม่</small></div><p class="center"><a href="./">ดูรายการอุปกรณ์ทั้งหมด</a></p>`; return; }
+    if (!a.length) { APP.html = `<div class="card err">ไม่พบอุปกรณ์รหัส <b>${esc(assetKey)}</b><br><small>ให้แอดมินกด "ซิงก์ออนไลน์" ในโปรแกรม Smart Maintenance แล้วสแกนใหม่</small></div><p class="center"><a href="./">ดูรายการอุปกรณ์ทั้งหมด</a></p>`; return; }
     asset = a[0]; people = p;
     const [t, pd] = await Promise.all([
       get("sm_templates?template_id=eq." + encodeURIComponent(asset.template_id) + "&select=*"),
       get("sm_submissions?asset_key=eq." + encodeURIComponent(assetKey) + "&select=id,insp_date,inspector,results,photos,created_at&order=created_at.desc")
     ]);
     tpl = t[0] || { title: asset.category, items: [], mode: "normal" }; pending = pd;
-    statusView();
-  } catch (e) { $("#app").innerHTML = `<div class="card err">${esc(e.message)}<br><small>ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่</small></div>`; }
+    const dr = draftGet();
+    if (qs.get("f") === "1" || (dr && Date.now() - (dr.ts || 0) < 30 * 60e3)) formView(); else statusView();
+  } catch (e) { APP.html = `<div class="card err">${esc(e.message)}<br><small>ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่</small><p><button class="btn s" onclick="location.reload()">ลองใหม่</button></p></div>`; }
 }
 
 function lab(v) {
@@ -135,13 +289,13 @@ function lab(v) {
 
 function phStrip(ph) {
   if (!ph || !ph.length) return "";
-  return `<div class="ph2">${ph.map(p => `<a href="#" data-t="${esc(p.t)}" data-u="${esc(p.u || "")}"><img src="${esc(p.t)}" alt="รูปตรวจเช็ค" loading="lazy"></a>`).join("")}</div>`;
+  return `<div class="ph2">${ph.map(p => `<a href="#" data-t="${esc(p.t)}" data-u="${esc(p.u || "")}" aria-label="ดูรูปตรวจเช็ค"><img src="${esc(p.t)}" alt="" loading="lazy"></a>`).join("")}</div>`;
 }
 function bindZoom() {
-  document.querySelectorAll(".ph2 a").forEach(a => a.onclick = ev => {
+  $$(".ph2 a").forEach(a => a.onclick = ev => {
     ev.preventDefault();
-    const z = document.createElement("div"); z.id = "zoom";
-    z.innerHTML = `<img src="${esc(a.dataset.t)}"><div>${a.dataset.u ? `<a href="${esc(a.dataset.u)}" target="_blank" rel="noopener">เปิดภาพต้นฉบับ (Google Drive)</a>` : "ภาพย่อสำหรับแสดงผล"}</div><div class="mut" style="color:#ddd">แตะเพื่อปิด</div>`;
+    const z = document.createElement("div"); z.id = "zoom"; z.setAttribute("role", "dialog");
+    z.innerHTML = `<img src="${esc(a.dataset.t)}" alt="รูปตรวจเช็ค"><div>${a.dataset.u ? `<a href="${esc(a.dataset.u)}" target="_blank" rel="noopener">เปิดภาพต้นฉบับ (Google Drive)</a>` : "ภาพย่อสำหรับแสดงผล"}</div><div style="color:#ccc;font-size:13px">แตะเพื่อปิด</div>`;
     z.onclick = e => { if (e.target.tagName !== "A") z.remove(); };
     document.body.appendChild(z);
   });
@@ -180,33 +334,53 @@ async function uploadOriginal(p, n, insp) {
   return j;
 }
 
+// ---------- ร่างผลตรวจ (กันข้อมูลหายเมื่อเปิดกล้องแล้วหน้าเว็บรีโหลด) ----------
+const dKey = () => "sm_draft_" + assetKey + "_" + todayISO();
+const draftGet = () => { try { return JSON.parse(localStorage.getItem(dKey()) || "null"); } catch (e) { return null; } };
+const draftSet = d => { try { d.ts = Date.now(); localStorage.setItem(dKey(), JSON.stringify(d)); } catch (e) {} };
+const draftDel = () => { try { localStorage.removeItem(dKey()); } catch (e) {} };
+
 function statusView() {
   const s = ST[asset.status] || ST.nodata;
   document.title = asset.asset_code + " • " + s[2];
+  $("#htitle").textContent = asset.asset_code;
   const res = asset.last_results || {};
   const bad = (tpl.items || []).filter(i => res[i.no] === "abnormal");
-  let h = `<div class="card"><div class="badge ${s[0]}"><span class="ic">${s[1]}</span><div>${s[2]}<small>${esc(asset.status_text || "")}</small></div></div>
+  const due = asset.next_due ? daysTo(asset.next_due) : null;
+  const chips = [
+    asset.location ? `<span class="chip">📍 ${esc(asset.location)}</span>` : "",
+    asset.purchase_date ? `<span class="chip">⏳ อายุ ${ageText(asset.purchase_date)}</span>` : "",
+    asset.next_due ? `<span class="chip ${due < 0 ? "ng" : due <= 1 ? "wa" : ""}">📅 ตรวจถัดไป ${thd(asset.next_due)} • ${dueText(asset.next_due)}</span>` : ""
+  ].join("");
+  const head = `<section class="card" aria-label="สถานะอุปกรณ์">
+    <div class="badge ${s[0]}"><span class="ic" aria-hidden="true">${s[1]}</span><div>${s[2]}<small>${esc(asset.status_text || "")}</small></div></div>
     <div style="margin-top:12px"><div class="code">${esc(asset.asset_code)}</div><div class="t">${esc(asset.name)}</div><div class="mut">${esc(tpl.title || asset.category || "")} • ${esc(asset.template_id || "")}</div></div>
-    <div class="kv"><div>ตรวจล่าสุด</div><div><b>${thd(asset.last_date)}</b></div>
-    <div>ผู้ตรวจเช็ค</div><div>${esc(asset.last_inspector || "-")}</div>
-    <div>หัวหน้างาน</div><div>${asset.last_sup ? "✔ " + esc(asset.last_sup) : "<span class='mut'>รอลงนาม</span>"}</div>
-    ${asset.last_mgr !== null ? `<div>ผู้จัดการ</div><div>${asset.last_mgr ? "✔ " + esc(asset.last_mgr) : "<span class='mut'>รอลงนาม</span>"}</div>` : ""}
-    <div>กำหนดตรวจถัดไป</div><div>${thd(asset.next_due)}</div>
-    <div>สถานที่จัดเก็บ</div><div>📍 ${esc(asset.location || "-")}</div>
-    <div>วันที่ซื้อ / อายุ</div><div>${asset.purchase_date ? thd(asset.purchase_date) + " • <b>" + ageText(asset.purchase_date) + "</b>" : "-"}</div>
-    ${asset.holder ? `<div>ผู้รับผิดชอบ</div><div>${esc(asset.holder)}</div>` : ""}</div>
+    <div class="chips">${chips}</div>
+    <dl class="kv">
+      <dt>ตรวจล่าสุด</dt><dd><b>${thd(asset.last_date)}</b></dd>
+      <dt>ผู้ตรวจเช็ค</dt><dd>${esc(asset.last_inspector || "-")}</dd>
+      <dt>หัวหน้างาน</dt><dd>${asset.last_sup ? "✔ " + esc(asset.last_sup) : "<span class='mut'>รอลงนาม</span>"}</dd>
+      ${asset.last_mgr !== null ? `<dt>ผู้จัดการ</dt><dd>${asset.last_mgr ? "✔ " + esc(asset.last_mgr) : "<span class='mut'>รอลงนาม</span>"}</dd>` : ""}
+      <dt>วันที่ซื้อ</dt><dd>${asset.purchase_date ? thd(asset.purchase_date) : "-"}</dd>
+      ${asset.holder ? `<dt>ผู้รับผิดชอบ</dt><dd>${esc(asset.holder)}</dd>` : ""}
+    </dl>
     ${pending.length ? `<div class="pend">📱 มีผลตรวจจากมือถือ ${pending.length} รายการ (ล่าสุด ${thd(pending[0].insp_date)} โดย ${esc(pending[0].inspector)}) รอแอดมินนำเข้าโปรแกรม${phStrip(pending[0].photos)}</div>` : ""}
-  </div>`;
-  if (bad.length) h += `<div class="card"><h2>จุดที่พบชำรุด (รอบล่าสุด)</h2>${bad.map(i => `<div class="it"><span class="n">${i.no}.</span><span class="x">${esc(i.name)}<small>${esc(i.criteria || "")}</small></span>${lab("abnormal")}</div>`).join("")}</div>`;
-  h += `<div class="card"><h2>ผลตรวจรอบล่าสุด <span class="mut">${thd(asset.last_date)}</span></h2>${(tpl.items || []).map(i => `<div class="it"><span class="n">${i.no}.</span><span class="x">${esc(i.name)}</span>${lab(res[i.no])}</div>`).join("") || "<span class='mut'>ยังไม่มีข้อมูล</span>"}</div>`;
+  </section>`;
+  let side = head;
+  if (bad.length) side += `<section class="card"><h2>⚠️ จุดที่พบชำรุด (รอบล่าสุด)</h2>${bad.map(i => `<div class="it"><span class="n">${i.no}.</span><span class="x">${esc(i.name)}<small>${esc(i.criteria || "")}</small></span>${lab("abnormal")}</div>`).join("")}</section>`;
+  side += `<div id="barSlot"></div>`;
+
+  const items = tpl.items || [];
+  const rowsOf = list => list.map(i => `<div class="it"><span class="n">${i.no}.</span><span class="x">${esc(i.name)}</span>${lab(res[i.no])}</div>`).join("");
+  let mainH = `<section class="card"><h2>ผลตรวจรอบล่าสุด <span class="mut">${thd(asset.last_date)}</span></h2>${items.length ? (items.length > 6 && !wide.matches ? rowsOf(items.slice(0, 5)) + `<details class="more"><summary>ดูอีก ${items.length - 5} ข้อ ▾</summary>${rowsOf(items.slice(5))}</details>` : rowsOf(items)) : "<span class='mut'>ยังไม่มีข้อมูล</span>"}</section>`;
   const rc = asset.recent || [];
-  if (rc.length) h += `<div class="card"><h2>ประวัติตรวจเช็คล่าสุด</h2>${rc.map(r => `<div class="rd"><b>${thd(r.date)}</b> • ${r.ok ? "<span style='color:var(--ok)'>" + esc(r.status) + "</span>" : "<span style='color:var(--ng)'>" + esc(r.status) + "</span>"} <span class="mut">โดย ${esc(r.inspector || "-")}</span>${r.bad ? `<div class="mut">ไม่ปกติ: ${esc(r.bad)}</div>` : ""}${phStrip(r.photos)}</div>`).join("")}</div>`;
+  if (rc.length) mainH += `<section class="card"><h2>ประวัติตรวจเช็คล่าสุด <span class="mut">${rc.length} รอบ</span></h2>${rc.map(r => `<div class="rd"><b>${thd(r.date)}</b> • <span style="color:var(--${r.ok ? "ok" : "ng"})">${esc(r.status)}</span> <span class="mut">โดย ${esc(r.inspector || "-")}</span>${r.bad ? `<div class="mut">ไม่ปกติ: ${esc(r.bad)}</div>` : ""}${phStrip(r.photos)}</div>`).join("")}</section>`;
   const rp = asset.repairs || [];
-  h += `<div class="card"><h2>ประวัติส่งซ่อม <span class="mut">${rp.length} ครั้ง</span></h2>${rp.length ? rp.map(r => `<div class="rd"><b>${thd(r.date)}</b> ${r.cost ? "<span class='mut'>• " + Number(r.cost).toLocaleString("th-TH") + " บาท</span>" : ""}<div>${esc(r.detail)}</div></div>`).join("") : "<span class='mut'>ไม่มีประวัติส่งซ่อม</span>"}</div>`;
-  h += `<p class="mut center">ข้อมูลจากโปรแกรม ณ ${new Date(asset.updated_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}<br><a href="./">รายการอุปกรณ์ทั้งหมด</a></p>`;
-  $("#app").innerHTML = h;
-  $("#bar").hidden = false;
-  $("#barIn").innerHTML = `<button class="btn p" id="go">📝 ตรวจเช็คความพร้อมวันนี้</button>`;
+  mainH += `<section class="card"><h2>ประวัติส่งซ่อม <span class="mut">${rp.length} ครั้ง</span></h2>${rp.length ? rp.map(r => `<div class="rd"><b>${thd(r.date)}</b> ${r.cost ? "<span class='mut'>• " + Number(r.cost).toLocaleString("th-TH") + " บาท</span>" : ""}<div>${esc(r.detail)}</div></div>`).join("") : "<span class='mut'>ไม่มีประวัติส่งซ่อม</span>"}</section>`;
+  mainH += `<p class="mut center foot">ข้อมูลจากโปรแกรม ณ ${new Date(asset.updated_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })} • <a href="./">รายการอุปกรณ์ทั้งหมด</a></p>`;
+
+  APP.html = `<div class="lay"><div class="side">${side}</div><div class="main">${mainH}</div></div>`;
+  setBar(`<button class="btn p" id="go">📝 ตรวจเช็คความพร้อมวันนี้</button>`);
   $("#go").onclick = formView;
   bindZoom();
   scrollTo(0, 0);
@@ -214,29 +388,64 @@ function statusView() {
 
 function formView() {
   const have = tpl.mode === "have";
-  const vals = {};
-  const last = localStorage.getItem("sm_inspector") || "";
-  let h = `<div class="card"><div class="code">${esc(asset.asset_code)}</div><div class="t">${esc(asset.name)}</div><div class="mut">${esc(tpl.title)} • วันที่ ${thd(todayISO())}</div></div>
-  <div class="card"><h2>รายการตรวจเช็ค <button class="pill ok" id="allok" style="border:none">✔ ${have ? "มี" : "ปกติ"}ทุกข้อ</button></h2>
-  ${tpl.items.map(i => `<div class="q" data-no="${i.no}"><b>${i.no}. ${esc(i.name)}</b><small>${esc(i.criteria || "")}</small>
-    <div class="seg"><button type="button" data-v="normal" class="g">${have ? "มี" : "ปกติ"}</button><button type="button" data-v="abnormal" class="r">${have ? "ไม่มี" : "ไม่ปกติ"}</button></div></div>`).join("")}</div>
-  <div class="card"><h2>📷 ถ่ายภาพบันทึก * <span class="mut" id="phn">0/${MAX_PH}</span></h2>
-  <div class="mut">ถ่ายอย่างน้อย ${MIN_PH} รูป (สภาพอุปกรณ์ / จุดชำรุด) • ต้นฉบับเก็บใน Google Drive</div>
-  <div class="ph" id="ph"></div><input type="file" id="cam" accept="image/*" capture="environment" hidden><input type="file" id="gal" accept="image/*" multiple hidden></div>
-  <div class="card"><label class="f">ผู้ตรวจเช็ค *</label><input id="insp" list="pl" value="${esc(last)}" placeholder="ชื่อ-นามสกุล ผู้ตรวจ" autocomplete="name">
-  <datalist id="pl">${people.map(p => `<option value="${esc(p.name)}">`).join("")}</datalist>
-  <label class="f">หมายเหตุ (ถ้ามี)</label><textarea id="note" rows="2" maxlength="500" placeholder="เช่น อาการที่พบ / ส่งซ่อมแล้ว"></textarea></div>`;
-  $("#app").innerHTML = h;
-  const paint = () => document.querySelectorAll(".q").forEach(q => q.querySelectorAll("button").forEach(b => b.classList.toggle("on", vals[q.dataset.no] === b.dataset.v)));
-  document.querySelectorAll(".q button").forEach(b => b.onclick = () => { vals[b.closest(".q").dataset.no] = b.dataset.v; paint(); });
-  $("#allok").onclick = () => { tpl.items.forEach(i => vals[i.no] = "normal"); paint(); };
+  const OK = have ? "มี" : "ปกติ", NG = have ? "ไม่มี" : "ไม่ปกติ";
+  const dr = draftGet() || {};
+  const vals = dr.vals || {};
+  const items = tpl.items || [];
+  document.title = "ตรวจเช็ค • " + asset.asset_code;
+  $("#htitle").textContent = "ตรวจเช็ค " + asset.asset_code;
+  const last = dr.insp || localStorage.getItem("sm_inspector") || "";
+  const idCard = `<section class="card"><div class="code">${esc(asset.asset_code)}</div><div class="t">${esc(asset.name)}</div>
+      <div class="mut">${esc(tpl.title)} • วันที่ ${thd(todayISO())}${asset.location ? " • 📍 " + esc(asset.location) : ""}</div>
+      ${dr.vals ? `<div class="draft" style="margin-top:8px"><span>↺ กู้คืนร่างที่ทำค้างไว้แล้ว</span><button type="button" id="clr">ล้างร่าง</button></div>` : ""}</section>`;
+  const side = `<section class="card"><h2>📷 ถ่ายภาพบันทึก * <span class="mut" id="phn">0/${MAX_PH}</span></h2>
+      <div class="mut">อย่างน้อย ${MIN_PH} รูป: สภาพอุปกรณ์ และจุดที่ชำรุด • ต้นฉบับเก็บใน Google Drive</div>
+      <div class="ph" id="ph"></div>
+      <input type="file" id="cam" accept="image/*" capture="environment" hidden><input type="file" id="gal" accept="image/*" multiple hidden></section>
+    <section class="card"><label class="f" for="insp">ผู้ตรวจเช็ค *</label><input id="insp" list="pl" value="${esc(last)}" placeholder="ชื่อ-นามสกุล ผู้ตรวจ" autocomplete="name" enterkeyhint="next">
+      <datalist id="pl">${people.map(p => `<option value="${esc(p.name)}">`).join("")}</datalist>
+      <label class="f" for="note">หมายเหตุ (ถ้ามี)</label><textarea id="note" rows="2" maxlength="500" placeholder="เช่น อาการที่พบ / ส่งซ่อมแล้ว" enterkeyhint="done">${esc(dr.note || "")}</textarea></section>
+    <div id="barSlot"></div>`;
+  const main = `<section class="card"><h2>รายการตรวจเช็ค (${items.length} ข้อ) <button type="button" class="allok" id="allok">✔ ${OK}ทุกข้อ</button></h2>
+    <div class="items">${items.map(i => `<div class="q" data-no="${esc(i.no)}" id="q${esc(i.no)}"><b>${esc(i.no)}. ${esc(i.name)}</b><small>${esc(i.criteria || "")}</small>
+      <div class="seg" role="group" aria-label="${esc(i.name)}"><button type="button" data-v="normal" class="g" aria-pressed="false">${OK}</button><button type="button" data-v="abnormal" class="r" aria-pressed="false">${NG}</button></div>
+      <button type="button" class="qcam">📷 ถ่ายรูปจุดนี้</button></div>`).join("")}</div></section>`;
+  // มือถือ: รายการตรวจก่อน แล้วรูป/ชื่อผู้ตรวจ (ทำตามลำดับจากบนลงล่าง) • คอม: ข้อมูล/รูปซ้าย รายการขวา
+  APP.html = wide.matches
+    ? `<div class="lay"><div class="side">${idCard}${side}</div><div class="main">${main}</div></div>`
+    : `<div class="lay"><div class="main">${idCard}${main}</div><div class="side">${side}</div></div>`;
+
+  const save = () => draftSet({ vals, insp: $("#insp").value, note: $("#note").value });
+  const paint = () => {
+    $$(".q").forEach(q => {
+      const v = vals[q.dataset.no];
+      q.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(v === b.dataset.v)));
+      q.classList.toggle("bad", v === "abnormal");
+      if (v) q.classList.remove("miss");
+    });
+    const done = items.filter(i => vals[i.no]).length, nb = items.filter(i => vals[i.no] === "abnormal").length;
+    const p = $("#prog");
+    if (p) {
+      p.querySelector("i").style.width = (items.length ? done / items.length * 100 : 0) + "%";
+      p.querySelector("span").innerHTML = `ตรวจแล้ว <b>${done}/${items.length}</b>${nb ? ` • <span style="color:var(--ng)">${NG} ${nb}</span>` : ""}`;
+    }
+  };
+  $$(".q .seg button").forEach(b => b.onclick = () => {
+    const q = b.closest(".q"); vals[q.dataset.no] = b.dataset.v; buzz(); paint(); save();
+    // ข้ามไปข้อถัดไปที่ยังไม่ตรวจ (มือถือ)
+    if (!wide.matches) { const nx = q.nextElementSibling; if (nx && !vals[nx.dataset.no]) setTimeout(() => nx.scrollIntoView({ behavior: "smooth", block: "center" }), 120); }
+  });
+  $("#allok").onclick = () => { items.forEach(i => vals[i.no] = "normal"); buzz(); paint(); save(); };
+  $("#insp").oninput = save; $("#note").oninput = save;
+  if ($("#clr")) $("#clr").onclick = () => { draftDel(); formView(); };
+
   const photos = [];
   const drawPh = () => {
     $("#phn").textContent = photos.length + "/" + MAX_PH;
-    $("#ph").innerHTML = photos.map((p, i) => `<div><img src="${p.thumb}"><button type="button" class="rm" data-i="${i}">✕</button></div>`).join("") +
-      (photos.length < MAX_PH ? `<div class="add" id="addCam"><span>📷</span>ถ่ายรูป</div><div class="add" id="addGal"><span>🖼️</span>เลือกจากเครื่อง</div>` : "");
-    document.querySelectorAll("#ph .rm").forEach(b => b.onclick = () => { photos.splice(+b.dataset.i, 1); drawPh(); });
-    if ($("#addCam")) { $("#addCam").onclick = () => $("#cam").click(); $("#addGal").onclick = () => $("#gal").click(); }
+    $("#ph").innerHTML = photos.map((p, i) => `<div><img src="${p.thumb}" alt="รูปที่ ${i + 1}"><button type="button" class="rm" data-i="${i}" aria-label="ลบรูปที่ ${i + 1}">✕</button></div>`).join("") +
+      (photos.length < MAX_PH ? `<div><button type="button" class="add" id="addCam"><span aria-hidden="true">📷</span>ถ่ายรูป</button></div><div><button type="button" class="add" id="addGal"><span aria-hidden="true">🖼️</span>เลือกรูป</button></div>` : "");
+    $$("#ph .rm").forEach(b => b.onclick = () => { photos.splice(+b.dataset.i, 1); drawPh(); });
+    if ($("#addCam")) { $("#addCam").onclick = () => { save(); $("#cam").click(); }; $("#addGal").onclick = () => { save(); $("#gal").click(); }; }
   };
   const addFiles = async files => {
     for (const f of files) {
@@ -247,16 +456,24 @@ function formView() {
   };
   $("#cam").onchange = e => { addFiles([...e.target.files]); e.target.value = ""; };
   $("#gal").onchange = e => { addFiles([...e.target.files]); e.target.value = ""; };
+  $$(".qcam").forEach(b => b.onclick = () => { if (photos.length >= MAX_PH) { alert("ครบ " + MAX_PH + " รูปแล้ว"); return; } save(); $("#cam").click(); });
   drawPh();
-  $("#barIn").innerHTML = `<div style="display:flex;gap:8px"><button class="btn s" id="back" style="flex:1">ยกเลิก</button><button class="btn p" id="send" style="flex:2">ส่งผลตรวจ</button></div>`;
-  $("#back").onclick = statusView;
+
+  setBar(`<div class="prog" id="prog"><div class="tr"><i></i></div><span></span></div>
+    <div class="row"><button class="btn s" id="cancel" style="flex:1">ยกเลิก</button><button class="btn p" id="send" style="flex:2">ส่งผลตรวจ</button></div>`);
+  paint();
+  $("#cancel").onclick = () => { if ((Object.keys(vals).length || photos.length) && !confirm("ยกเลิกการตรวจ? (คำตอบที่เลือกไว้จะเก็บเป็นร่างจนถึงสิ้นวัน)")) return; statusView(); };
   $("#send").onclick = async () => {
-    const left = tpl.items.filter(i => !vals[i.no]);
+    const left = items.filter(i => !vals[i.no]);
     const insp = $("#insp").value.trim();
-    if (left.length) { alert("ยังไม่ได้ตรวจ " + left.length + " ข้อ: " + left.map(i => i.no).join(", ")); return; }
-    if (insp.length < 2) { alert("กรุณาใส่ชื่อผู้ตรวจเช็ค"); $("#insp").focus(); return; }
-    if (photos.length < MIN_PH) { alert("กรุณาถ่ายภาพบันทึกอย่างน้อย " + MIN_PH + " รูป"); return; }
-    const btn = $("#send"); btn.disabled = true; btn.textContent = "กำลังส่ง...";
+    if (left.length) {
+      left.forEach(i => $("#q" + CSS.escape(i.no)).classList.add("miss"));
+      $("#q" + CSS.escape(left[0].no)).scrollIntoView({ behavior: "smooth", block: "center" });
+      alert("ยังไม่ได้ตรวจ " + left.length + " ข้อ: " + left.map(i => i.no).join(", ")); return;
+    }
+    if (photos.length < MIN_PH) { $("#ph").scrollIntoView({ behavior: "smooth", block: "center" }); alert("กรุณาถ่ายภาพบันทึกอย่างน้อย " + MIN_PH + " รูป"); return; }
+    if (insp.length < 2) { $("#insp").focus(); alert("กรุณาใส่ชื่อผู้ตรวจเช็ค"); return; }
+    const btn = $("#send"); btn.disabled = true; $("#cancel").disabled = true; btn.textContent = "กำลังส่ง...";
     try {
       const ph = [];
       let failed = 0;
@@ -274,16 +491,17 @@ function formView() {
       const body = { asset_key: asset.asset_key, asset_code: asset.asset_code, template_id: asset.template_id, insp_date: todayISO(), inspector: insp, results: vals, note: $("#note").value.trim() || null, photos: ph };
       const r = await fetch(SB + "sm_submissions", { method: "POST", headers: { ...H, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error("ส่งไม่สำเร็จ (" + r.status + ") " + (await r.text()).slice(0, 120));
-      localStorage.setItem("sm_inspector", insp);
-      const bad = tpl.items.filter(i => vals[i.no] === "abnormal");
-      $("#app").innerHTML = `<div class="card center"><div style="font-size:54px">${bad.length ? "⚠️" : "✅"}</div><div class="t">ส่งผลตรวจเรียบร้อย</div>
+      localStorage.setItem("sm_inspector", insp); draftDel(); buzz();
+      const bad = items.filter(i => vals[i.no] === "abnormal");
+      APP.html = `<div class="card center" style="max-width:560px;margin:0 auto"><div style="font-size:54px" aria-hidden="true">${bad.length ? "⚠️" : "✅"}</div><div class="t">ส่งผลตรวจเรียบร้อย</div>
         <p>${esc(asset.asset_code)} • ${esc(asset.name)}<br>${thd(todayISO())} โดย ${esc(insp)}<br><span class="mut">ภาพบันทึก ${ph.length} รูป${ph.some(x => x.u) ? " • ต้นฉบับเก็บใน Google Drive แล้ว" : ""}</span></p>
-        <div class="badge ${bad.length ? "ng" : "ok"}" style="justify-content:center">${bad.length ? (tpl.mode === "have" ? "ขาด " : "พบจุดชำรุด ") + bad.length + " ข้อ" : (tpl.mode === "have" ? "อุปกรณ์ครบ" : "ปกติ พร้อมใช้งาน")}</div>
-        ${bad.length ? `<p class="mut" style="text-align:left">${bad.map(i => i.no + ". " + esc(i.name)).join("<br>")}</p><p><b>แจ้งหัวหน้างานเพื่อดำเนินการซ่อม</b></p>` : ""}
+        <div class="badge ${bad.length ? "ng" : "ok"}" style="justify-content:center">${bad.length ? (have ? "ขาด " : "พบจุดชำรุด ") + bad.length + " ข้อ" : (have ? "อุปกรณ์ครบ" : "ปกติ พร้อมใช้งาน")}</div>
+        ${bad.length ? `<p class="mut" style="text-align:left">${bad.map(i => esc(i.no) + ". " + esc(i.name)).join("<br>")}</p><p><b>แจ้งหัวหน้างานเพื่อดำเนินการซ่อม</b></p>` : ""}
         <p class="mut">ผลตรวจจะเข้าโปรแกรมเมื่อแอดมินกด "ซิงก์ออนไลน์" แล้วหัวหน้างานลงนาม</p></div>`;
-      $("#barIn").innerHTML = `<button class="btn s" onclick="location.reload()">กลับหน้าสถานะ</button>`;
+      $("#app").insertAdjacentHTML("beforeend", `<div id="barSlot" style="max-width:560px;margin:12px auto 0"></div>`);
+      setBar(`<div class="row"><a class="btn s" href="./" style="flex:1">รายการอุปกรณ์</a><button class="btn p" style="flex:1" onclick="location.reload()">กลับหน้าสถานะ</button></div>`);
       scrollTo(0, 0);
-    } catch (e) { alert(e.message); btn.disabled = false; btn.textContent = "ส่งผลตรวจ"; }
+    } catch (e) { alert(e.message); btn.disabled = false; $("#cancel").disabled = false; btn.textContent = "ส่งผลตรวจ"; }
   };
   scrollTo(0, 0);
 }
@@ -292,15 +510,21 @@ async function listView() {
   const list = await get("sm_assets?select=asset_key,asset_code,name,category,status,last_date,location&order=template_id,asset_code");
   const col = { ready: "var(--ok)", broken: "var(--ng)", overdue: "var(--warn)", nodata: "#94a3b8" };
   const cnt = k => list.filter(a => a.status === k).length;
-  const draw = f => {
+  let filt = "", q = "";
+  const draw = () => {
     const g = {};
-    list.filter(a => !f || (a.asset_code + a.name + a.category + (a.location || "")).toLowerCase().includes(f.toLowerCase())).forEach(a => (g[a.category] = g[a.category] || []).push(a));
-    $("#ls").innerHTML = Object.keys(g).map(c => `<div class="card"><h2>${esc(c)} <span class="mut">${g[c].length}</span></h2><div class="ls">${g[c].map(a => `<a href="?a=${encodeURIComponent(a.asset_key)}"><span style="display:flex;gap:8px;align-items:center;min-width:0"><span class="dot" style="background:${col[a.status] || "#94a3b8"}"></span><span style="min-width:0"><span class="code">${esc(a.asset_code)}</span><br><span style="font-size:14px">${esc(a.name)}</span>${a.location ? `<br><span class="mut">📍 ${esc(a.location)}</span>` : ""}</span></span><span class="mut" style="white-space:nowrap">${thd(a.last_date)}</span></a>`).join("")}</div></div>`).join("") || "<p class='mut center'>ไม่พบ</p>";
+    list.filter(a => (!filt || a.status === filt) && (!q || (a.asset_code + a.name + a.category + (a.location || "")).toLowerCase().includes(q.toLowerCase())))
+      .forEach(a => (g[a.category] = g[a.category] || []).push(a));
+    $("#ls").innerHTML = Object.keys(g).map(c => `<section class="card"><h2>${esc(c)} <span class="mut">${g[c].length}</span></h2><div class="ls">${g[c].map(a => `<a href="?a=${encodeURIComponent(a.asset_key)}"><span style="display:flex;gap:10px;align-items:center;min-width:0"><span class="dot" style="background:${col[a.status] || "#94a3b8"}" title="${esc((ST[a.status] || ST.nodata)[2])}"></span><span style="min-width:0"><span class="code">${esc(a.asset_code)}</span><br><span style="font-size:14.5px">${esc(a.name)}</span>${a.location ? `<br><span class="mut">📍 ${esc(a.location)}</span>` : ""}</span></span><span class="mut" style="white-space:nowrap">${thd(a.last_date)} ›</span></a>`).join("")}</div></section>`).join("") || "<p class='mut center'>ไม่พบอุปกรณ์</p>";
+    $$(".stats button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.s === filt)));
   };
-  $("#app").innerHTML = `<div class="card"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">
-    <div class="badge ok" style="display:block;font-size:22px">${cnt("ready")}<small>พร้อมใช้</small></div><div class="badge ng" style="display:block;font-size:22px">${cnt("broken")}<small>ชำรุด</small></div><div class="badge wa" style="display:block;font-size:22px">${cnt("overdue")}<small>เกินกำหนด</small></div></div>
-    <input id="q" placeholder="🔍 ค้นหารหัส / ชื่ออุปกรณ์" style="margin-top:12px"></div><div id="ls"></div>`;
-  draw(""); $("#q").oninput = e => draw(e.target.value);
+  const stat = (k, cls, label) => `<button type="button" class="${cls}" data-s="${k}" aria-pressed="false">${cnt(k)}<small>${label}</small></button>`;
+  APP.html = `<section class="card"><div class="lsHead"><div class="stats">${stat("ready", "ok", "พร้อมใช้")}${stat("broken", "ng", "ชำรุด")}${stat("overdue", "wa", "เกินกำหนด")}${stat("nodata", "na", "ไม่มีผล")}</div>
+    <div class="search"><span aria-hidden="true">🔍</span><input id="q" type="search" placeholder="ค้นหารหัส / ชื่อ / สถานที่" aria-label="ค้นหาอุปกรณ์" enterkeyhint="search"></div></div>
+    <div class="mut" style="margin-top:8px">แตะตัวเลขเพื่อกรองสถานะ • ทั้งหมด ${list.length} รายการ</div></section><div class="groups" id="ls" style="margin-top:12px"></div>`;
+  $$(".stats button").forEach(b => b.onclick = () => { filt = filt === b.dataset.s ? "" : b.dataset.s; buzz(); draw(); });
+  $("#q").oninput = e => { q = e.target.value; draw(); };
+  draw();
 }
 main();
 </script>
