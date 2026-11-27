@@ -166,3 +166,18 @@ table.ed.chemed select{width:100%;border:1px solid var(--line);border-radius:6px
 .libb.ut{display:flex;flex-direction:column;padding:0;cursor:default}.ut-add{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;padding:12px 12px 6px}.ut-add span{font-size:22px}.ut-add small{color:#667085;font-size:12px}
 .ut-ctl{display:flex;gap:4px;flex-wrap:wrap;padding:0 10px 10px}.libb.newt{border-style:dashed;background:#fbfcfb}
 .tplf .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.tplf textarea,.tplf input,.tplf select{border:1px solid var(--line);border-radius:6px;padding:7px 9px;font:inherit}
+/* ── บล็อกรายงานโรงแรม ── */
+.xrm{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:2px 0 8px}
+.xrm>div{border:1px solid #d6e0da;border-radius:8px;padding:10px 12px;background:#fbfdfc;display:flex;flex-direction:column;line-height:1.35}
+.xrm span{font-size:11.5px;color:#475467}.xrm small{color:#98a2b3}
+.xrm b{font-size:26px;color:#02472f;margin-top:4px}.xrm i{font-style:normal;font-size:12px;font-weight:700;color:#475467}
+.xrm .ok{border-left:5px solid #2f7d5b}.xrm .no{border-left:5px solid #e0531f}.xrm .no b{color:#e0531f}
+.xrm-bar{height:10px;border-radius:6px;background:#fde3d6;overflow:hidden}.xrm-bar i{display:block;height:100%;background:#2f7d5b}
+.xrn td{border:1px solid #d6e0da;text-align:center;padding:2px 0;font-size:11px;width:10%}
+.xrn tr:nth-child(even) td{background:#f6faf7}
+.cst{flex:none;display:inline-block;font-size:10.5px;font-weight:700;padding:1px 9px;border-radius:10px;white-space:nowrap}
+.cs-o{background:#ffe5d2;color:#b54708}.cs-d{background:#dcf2e4;color:#067647}.cs-w{background:#e0ecff;color:#1d4ed8}
+.lab.adv{background:#02472f;color:#fff}.lab.cli{background:#fff1e8;color:#b54708}
+.ait{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:#fcfdfd}
+.ait .row input,.ait .row select{border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
+.drop.sm{padding:8px;font-size:13px;margin-top:6px}

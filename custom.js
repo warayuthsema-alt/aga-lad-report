@@ -59,6 +59,10 @@ function blank(k) {
   const blocks = clone(upgrade(p).blocks).map(b => {
     if (b.type === 'stations') b.rows.forEach(r => { r.v = r.v.map(() => 0); r.rem = ''; });
     if (b.type === 'photos') b.photos = [];
+    if (b.type === 'stations') b.analysis = '';
+    if (b.type === 'rooms') b.rooms = '';
+    if (b.type === 'areas') b.items.forEach(it => { it.photos = []; it.problem = ''; });
+    if (b.type === 'complain') b.items = [];
     return b;
   });
   return { svcDate: '', blocks };
@@ -175,6 +179,7 @@ function piecesStations(b) {
     out.push({ h: `<div class="xchart"><img src="${img}" style="width:680px"></div>` });
   }
   if ((b.note || '').trim()) out.push({ h: `<div class="xnote"><b>หมายเหตุ</b> ${nl(b.note)}</div>` });
+  if ((b.analysis || '').trim()) { out.push({ k: 'h', h: `<div class="xs-a">วิเคราะห์ผล</div>` }); b.analysis.split('\n').filter(x => x.trim()).forEach(x => out.push({ h: `<div class="xp-p">${esc(x.trim())}</div>` })); }
   return out;
 }
 function piecesSections(b) {
@@ -249,7 +254,7 @@ function buildPages() {
     if (b.type === 'cover') { flushFlow(); P.push(pageCover(b, r)); return; }
     if (b.type === 'photos') { flushFlow(); P.push(...pagesPhotos(b)); return; }
     if (b.type === 'image') { flushFlow(); P.push(...pageImage(b)); return; }
-    const pieces = b.type === 'chem' ? piecesChem(b, r) : b.type === 'stations' ? piecesStations(b) : b.type === 'sections' ? piecesSections(b) : b.type === 'text' ? piecesText(b) : b.type === 'sign' ? piecesSign(b) : [];
+    const pieces = b.type === 'chem' ? piecesChem(b, r) : b.type === 'stations' ? piecesStations(b) : b.type === 'sections' ? piecesSections(b) : b.type === 'text' ? piecesText(b) : b.type === 'sign' ? piecesSign(b) : b.type === 'rooms' ? piecesRooms(b) : b.type === 'areas' ? piecesAreas(b) : b.type === 'complain' ? piecesComplain(b) : [];
     pieces.forEach(p => p.bt = b.title);
     if (pieces.length) flow.push({ pieces, newPage: !!b.newPage });
     if (b.type === 'stations' && b.showLayout !== false && (b.layouts || []).length) { flushFlow(); P.push(...pagesLayout(b.layouts, 'แผนผังตำแหน่ง · ' + b.title, true, b.showRev)); }
@@ -257,6 +262,76 @@ function buildPages() {
   flushFlow();
   const N = P.filter(p => !p.cover).length; let n = 0; P.forEach(p => { if (!p.cover) p.html = p.html.replace('<span class="pno"></span>', `<span class="pno">หน้า ${++n} / ${N}</span>`); });
   return P;
+}
+
+/* ───────── บล็อกรายงานโรงแรม (ตาม SOP รายงานโรงแรม คอนโด ศูนย์การค้า) ───────── */
+/* เลขห้อง: คั่นด้วยช่องว่าง , หรือขึ้นบรรทัด · ช่วงห้อง 301-310 ได้ */
+function parseRooms(t) {
+  const out = []; String(t || '').split(/[\s,;]+/).filter(Boolean).forEach(x => { const m = x.match(/^([A-Za-z]*)(\d+)-([A-Za-z]*)(\d+)$/);
+    if (m && m[1] === m[3] && +m[4] >= +m[2] && +m[4] - +m[2] <= 500) { for (let n = +m[2]; n <= +m[4]; n++) out.push(m[1] + String(n).padStart(m[2].length, '0')); } else out.push(x); });
+  return [...new Set(out)];
+}
+function roomStat(b) { const list = parseRooms(b.rooms); const tot = Math.max(+b.total || 0, 0); const n = Math.min(list.length, tot || list.length);
+  const done = b.listMode === 'done' ? n : Math.max(tot - n, 0); const not = Math.max(tot - done, 0); const pct = v => tot ? Math.round(v / tot * 10000) / 100 : 0;
+  return { list, tot, done, not, pDone: pct(done), pNot: pct(not) }; }
+function piecesRooms(b) {
+  const out = [{ k: 'h', h: bHead(b.title) }]; const st = roomStat(b);
+  out.push({ h: `<div class="xrm"><div><span>ห้องพักทั้งหมด<br><small>Guest room total</small></span><b>${st.tot}</b><i>ห้อง</i></div>
+    <div class="ok"><span>ห้องที่เข้าทำบริการได้<br><small>Guest room service</small></span><b>${st.done}</b><i>ห้อง · ${st.pDone}%</i></div>
+    <div class="no"><span>ห้องที่ไม่ได้เข้าทำบริการ<br><small>Guest room not service</small></span><b>${st.not}</b><i>ห้อง · ${st.pNot}%</i></div></div>
+    <div class="xrm-bar"><i style="width:${st.pDone}%"></i></div><div class="xlegend">คิดจากจำนวนห้องพักทั้งหมด ${st.tot} ห้อง · ทำบริการได้ ${st.pDone}% · ไม่ได้ทำบริการ ${st.pNot}%</div>` });
+  if (st.list.length) { out.push({ k: 'h', h: `<div class="xs-h">${b.listMode === 'done' ? 'หมายเลขห้องพักที่เข้าทำบริการ · Service record for pest control for guest rooms' : 'หมายเลขห้องพักที่ไม่ได้เข้าทำบริการ · Guest rooms that did not receive the pest control service'} (${st.list.length} ห้อง)</div>` });
+    for (let i = 0; i < st.list.length; i += 150) { const part = st.list.slice(i, i + 150); const rows = []; for (let j = 0; j < part.length; j += 10) rows.push(part.slice(j, j + 10));
+      out.push({ h: `<table class="xct xrn">${rows.map(r => `<tr>${Array.from({ length: 10 }, (_, k) => `<td>${esc(r[k] || '')}</td>`).join('')}</tr>`).join('')}</table>` }); } }
+  if ((b.note || '').trim()) out.push({ h: `<div class="xnote"><b>หมายเหตุ / สาเหตุที่เข้าไม่ได้</b> ${nl(b.note)}</div>` });
+  if (b.chart !== false) { const ks = yearKeys(); const vals = ks.map(k => { if (k > curKey()) return null; if (k === curKey()) return st.tot ? st.pDone : null; const rr = reports[k]; if (!rr || rr._new) return null; const bb = upgrade(rr).blocks.find(x => x.id === b.id); return bb && +bb.total ? roomStat(bb).pDone : null; });
+    out.push({ h: `<div class="xchart"><img src="${barChart({ w: 680, h: 210, title: 'ร้อยละห้องพักที่เข้าทำบริการได้ในแต่ละเดือน (%)', labels: ks.map(mShort), vals, hi: ks.indexOf(curKey()) })}" style="width:680px"></div>` }); }
+  return out;
+}
+const okPh = l => (l || []).filter(p => p.id && (!p.id.startsWith('up:') || mem[p.id]));
+function phRow(list, cols) { const ph = okPh(list).slice(0, 3); if (!ph.length) return ''; const W = 794 - 2 * 56, G = 10, n = Math.min(3, Math.max(ph.length, cols || ph.length)); const cw = (W - (n - 1) * G) / n; const H = n === 1 ? 300 : n === 2 ? 240 : 190;
+  return `<div class="xr" style="height:${H}px;margin:6px 0">${ph.map(p => `<div class="xcell" style="width:${cw}px;height:${H}px"><div class="xim" style="width:100%;height:100%;background-size:contain;background-color:#f6faf7;background-image:url('${esc(imgURL(p.id))}')"></div></div>`).join('')}</div>`; }
+function piecesAreas(b) {
+  const out = [{ k: 'h', h: bHead(b.title) }]; const items = b.items.filter(it => (it.area || '').trim() || okPh(it.photos).length);
+  items.forEach((it, i) => { out.push({ k: 'h', h: `<div class="xs-t"><span class="no">${i + 1}</span><span style="flex:1">พื้นที่ ${esc(it.area || '-')}</span></div>` });
+    const ph = okPh(it.photos); for (let j = 0; j < Math.max(ph.length, 1); j += 3) { const r = phRow(ph.slice(j, j + 3), ph.length); if (r) out.push({ h: r }); }
+    if ((it.problem || '').trim()) out.push({ h: `<div class="xs-f"><span class="lab">สิ่งที่พบ</span><div>${nl(it.problem)}</div></div>` });
+    if ((it.action || '').trim()) out.push({ h: `<div class="xs-f"><span class="lab adv">Action by Team AGA</span><div>${nl(it.action)}</div></div>` });
+    out.push({ k: 'gap', h: '<div class="xs-gap"></div>' }); });
+  if (!items.length) out.push({ h: '<p class="xnote">— ยังไม่มีพื้นที่ —</p>' });
+  return out;
+}
+const CST = { open: ['อยู่ระหว่างติดตาม', 'cs-o'], done: ['แก้ไขแล้ว', 'cs-d'], watch: ['เฝ้าระวังต่อเนื่อง', 'cs-w'] };
+function piecesComplain(b) {
+  const out = [{ k: 'h', h: bHead(b.title) }]; const items = b.items.filter(it => (it.area || it.problem || '').trim());
+  if (!items.length) { if (b.showNone !== false) out.push({ h: `<div class="xs-f"><span class="lab">สรุป</span><div>เดือน${esc(mName(curKey()))} ไม่มีข้อร้องเรียนจากลูกค้า (No complaint this month)</div></div>` }); else return []; return out; }
+  out.push({ h: `<table class="xct"><tr><th style="width:34px">ที่</th><th style="width:86px">วันที่แจ้ง</th><th style="width:150px">พื้นที่</th><th>ปัญหาที่พบ</th><th style="width:110px">สถานะ</th></tr>${items.map((it, i) => `<tr class="${i % 2 ? 'z' : ''}"><td class="c">${i + 1}</td><td>${it.date ? esc(it.date.split('-').reverse().map((x, i) => i === 2 ? String(+x + 543) : x).join('/')) : '-'}</td><td>${esc(it.area)}</td><td class="nt">${nl(it.problem)}</td><td><span class="cst ${(CST[it.status] || CST.open)[1]}">${(CST[it.status] || CST.open)[0]}</span></td></tr>`).join('')}</table><div class="xs-gap"></div>` });
+  items.forEach((it, i) => { out.push({ k: 'h', h: `<div class="xs-t"><span class="no">${i + 1}</span><span style="flex:1">${esc(it.area || '-')}</span><span class="cst ${(CST[it.status] || CST.open)[1]}">${(CST[it.status] || CST.open)[0]}</span></div>` });
+    const ph = okPh(it.photos); for (let j = 0; j < ph.length; j += 3) out.push({ h: phRow(ph.slice(j, j + 3), ph.length) });
+    if ((it.problem || '').trim()) out.push({ h: `<div class="xs-f"><span class="lab">ปัญหาที่พบ</span><div>${nl(it.problem)}</div></div>` });
+    if ((it.suggest || '').trim()) out.push({ h: `<div class="xs-f"><span class="lab cli">คำแนะนำถึงลูกค้า</span><div>${nl(it.suggest)}</div></div>` });
+    if ((it.action || '').trim()) out.push({ h: `<div class="xs-f"><span class="lab adv">Action by Team AGA</span><div>${nl(it.action)}</div></div>` });
+    out.push({ k: 'gap', h: '<div class="xs-gap"></div>' }); });
+  return out;
+}
+/* วิเคราะห์ผลรอบ 3 เดือน (ใต้ตารางสถานี) — ร่างอัตโนมัติจากตัวเลข แก้ข้อความเองได้ */
+function stationHist(b, n) { const ks = Array.from({ length: n }, (_, i) => addMonths(curKey(), i - n + 1));
+  return ks.map(k => { if (k === curKey()) return { k, b }; const rr = reports[k]; if (!rr || rr._new) return { k, b: null }; return { k, b: upgrade(rr).blocks.find(x => x.id === b.id) || null }; }); }
+function draftAnalysis(b) {
+  const h = stationHist(b, 3).filter(x => x.b); const u = b.unit || ''; const avg = b.agg === 'avg'; const first = h[0].k, last = h[h.length - 1].k;
+  const tots = h.map(x => stTotalOf(x.b)); const meanAll = r1(sum(tots) / tots.length);
+  const per = {}; h.forEach(x => x.b.rows.forEach((r, j) => { const key = r.loc || ('จุดที่ ' + (j + 1)); per[key] = (per[key] || 0) + sum(r.v); }));
+  const hot = Object.entries(per).filter(([, v]) => v > 0).sort((a, b2) => b2[1] - a[1]).slice(0, 3);
+  const tr = tots.length > 1 ? (tots[tots.length - 1] > tots[0] ? 'มีแนวโน้มเพิ่มขึ้น' : tots[tots.length - 1] < tots[0] ? 'มีแนวโน้มลดลง' : 'คงที่') : '';
+  const lim = b.action != null && tots[tots.length - 1] >= b.action ? `เกินค่า Action limit (${b.action}) ที่กำหนด ต้องเพิ่มความถี่การตรวจและการกำจัด` : b.alert != null && tots[tots.length - 1] >= b.alert ? `เกินค่า Alert limit (${b.alert}) ควรเฝ้าระวังใกล้ชิด` : (b.alert != null || b.action != null) ? 'ไม่เกินค่าที่กำหนด (Alert/Action limit)' : '';
+  const t = b.title || ''; const rat = /หนู|เหยื่อพิษ|กาว/.test(t) && !/แมลง/.test(t); const roach = /แมลงสาบ/.test(t);
+  const fix = rat ? 'ตรวจสอบและซ่อมบำรุงประตูให้ขอบประตูชิดพื้น ไม่มีช่องว่าง ซ่อมรอยแตกของพื้นและผนัง ปิดฝาท่อด้วยตะแกรงตาถี่ ลดแหล่งอาหารและรักษาความสะอาดบริเวณห้องขยะ ลานโหลดสินค้า (Receiving area) เพื่อป้องกันหนูเข้าสู่อาคาร'
+    : roach ? 'ซ่อมรอยแตกของพื้น กระเบื้อง และขอบประตูเพื่อลดที่หลบซ่อน ปิดฝาท่อระบายน้ำด้วยตะแกรงตาถี่ป้องกันแมลงสาบอเมริกันขึ้นจากท่อ เก็บเศษอาหารในครัวและห้องขยะทุกวัน เพื่อลดแหล่งระบาดของแมลงสาบเยอรมัน'
+    : 'รักษาความสะอาด ลดแหล่งอาหารและแหล่งหลบซ่อนรอบจุดที่พบ และปิดช่องทางเข้าออกของสัตว์พาหะตามความเหมาะสม';
+  return `จากการวิเคราะห์ข้อมูล${t.replace(/^สรุป/, '')} ในรอบ ${h.length} เดือน ตั้งแต่เดือน${mName(first)} ถึงเดือน${mName(last)} (${b.rows.length} จุด) สรุปได้ดังนี้
+1. ${avg ? 'ค่าเฉลี่ย' : 'ยอดรวม'}รายเดือน: ${h.map((x, i) => `${mShort(x.k)} = ${tots[i]}${u ? ' ' + u : ''}`).join(', ')} ${h.length > 1 ? `เฉลี่ย ${meanAll}${u ? ' ' + u : ''}/เดือน ${tr}` : ''}${lim ? ' · ' + lim : ''}
+2. ${hot.length ? `จุดที่ควรเฝ้าระวัง: ${hot.map(([k, v]) => `${k} (${v}${u ? ' ' + u : ''})`).join(', ')} ซึ่งพบกิจกรรมมากที่สุดในช่วงนี้ ทีมบริการจะเพิ่มการตรวจสอบและการจัดการบริเวณดังกล่าว` : 'ยังไม่พบกิจกรรมในจุดติดตั้ง ทีมบริการจะตรวจสอบเฝ้าระวังต่อเนื่องทุกรอบบริการ'}
+3. ข้อเสนอแนะ: ${fix}`;
 }
 
 /* ───────── UI ───────── */
@@ -303,6 +378,8 @@ function blockOptions(b) {
   if (b.type === 'photos') return `<div class="opts"><label class="opt">จำนวนรูปต่อหน้า <select data-t="perPage">${[4, 6, 9].map(n => `<option ${+b.perPage === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>`;
   if (b.type === 'image') return `<div class="opts">${tog('showTitle', 'แสดงหัวข้อด้านบนรูป', b.showTitle !== false)}${tog('showRev', 'แสดงเลขฉบับแก้ไข (Rev.) และวันที่มีผล', b.showRev !== false)}</div>`;
   if (b.type === 'sign') return `<div class="opts">${tog('showTechs', 'แสดงรายชื่อผู้เข้าทำบริการ', b.showTechs !== false)}${tog('showSign', 'แสดงช่องลงนาม', b.showSign !== false)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
+  if (b.type === 'rooms') return `<div class="opts"><label class="opt">เลขห้องที่จะกรอก <select data-t="listMode"><option value="not" ${b.listMode !== 'done' ? 'selected' : ''}>ห้องที่ไม่ได้เข้าทำบริการ</option><option value="done" ${b.listMode === 'done' ? 'selected' : ''}>ห้องที่เข้าทำบริการได้</option></select></label>${tog('chart', 'แสดงกราฟ % รายเดือน', b.chart !== false)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
+  if (b.type === 'complain') return `<div class="opts">${tog('showNone', 'เดือนที่ไม่มีข้อร้องเรียน ให้พิมพ์ว่า "ไม่มีข้อร้องเรียน"', b.showNone !== false)}${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
   return `<div class="opts">${tog('newPage', 'เริ่มหน้าใหม่', b.newPage)}</div>`;
 }
 function renderLayout() {
@@ -319,7 +396,7 @@ function renderLayout() {
   <h3 class="libh">แบบตารางที่สร้างเอง <span class="hint">(ใช้ร่วมกันทุกลูกค้า)</span></h3><div class="lib">${USER_TPL.map(t => `<div class="libb ut"><button class="ut-add" data-add="stations" data-tpl="${esc(t.key)}"><span>${esc(t.icon || '📋')}</span><b>${esc(t.label)}</b><small>${esc(t.desc || '')}</small></button><div class="ut-ctl"><button class="btn sm" data-tedit="${esc(t.key)}">แก้ไขแบบ</button><button class="btn sm" data-tcopy="${esc(t.key)}">ทำสำเนา</button><button class="btn sm del" data-tdel="${esc(t.key)}">ลบ</button></div></div>`).join('')}
   <button class="libb newt" data-tnew><span>＋</span><b>สร้างแบบตารางใหม่</b><small>กำหนดชนิดแมลง/คอลัมน์ หน่วย ชื่อจุด เกณฑ์ Alert/Action เอง หรือดัดแปลงจากแบบสำเร็จรูป</small></button>
   <button class="libb newt" data-tfrom><span>⧉</span><b>ดัดแปลงจากแบบสำเร็จรูป</b><small>เลือกแบบด้านบน แล้วปรับคอลัมน์/จุดเป็นแบบของตัวเอง</small></button></div><div id="tplFormBox"></div>
-  <div class="card"><h2>เริ่มจากแบบฟอร์มตั้งต้น</h2><p class="hint">แทนที่โครงรายงานของเดือนนี้ทั้งหมดด้วยแบบที่เลือก (กดสองครั้งเพื่อยืนยัน) และใช้เป็นแบบเริ่มต้นของลูกค้ารายนี้</p>
+  <div class="card"><h2>เริ่มจากแบบฟอร์มตั้งต้น</h2><p class="hint">แทนที่โครงรายงานของเดือนนี้ทั้งหมดด้วยแบบที่เลือก (กดสองครั้งเพื่อยืนยัน) และใช้เป็นแบบเริ่มต้นของลูกค้ารายนี้ · <a href="hotel-sop.html" target="_blank">📖 ดู SOP การทำรายงานโรงแรม</a></p>
   <div class="row">${Object.entries(PRESETS).map(([k, p]) => `<button class="btn" data-pre="${k}">${esc(p.label)}</button>`).join('')}</div></div>${navRow('layout')}`;
   el.querySelectorAll('.blk').forEach(box => { const i = +box.dataset.i, b = r.blocks[i];
     box.querySelectorAll('[data-a]').forEach(btn => btn.onclick = () => { const a = btn.dataset.a;
@@ -368,6 +445,8 @@ function editorOf(b) {
     <div class="row" style="margin-top:8px"><button class="btn sm" data-x="add">+ เพิ่มจุด</button><button class="btn sm" data-x="bulk">วางรายชื่อจุดหลายบรรทัด</button><button class="btn sm" data-x="zero">ล้างเป็น 0</button>${p ? '<button class="btn sm" data-x="copy">คัดลอกตัวเลขจากเดือนก่อน</button>' : ''}</div>
     <div class="bulk" style="display:none"><textarea rows="6" placeholder="วางรายชื่อจุด บรรทัดละ 1 จุด"></textarea><div class="row"><button class="btn sm pri" data-x="bulkok">ใช้รายชื่อนี้</button><span class="hint">แทนที่ชื่อจุดเดิมตามลำดับ และเพิ่มจุดใหม่ถ้ายาวกว่าเดิม</span></div></div>
     <label class="f" style="margin-top:10px">หมายเหตุท้ายตาราง<textarea data-t="note" rows="2">${esc(b.note || '')}</textarea></label>
+    <label class="f" style="margin-top:10px">วิเคราะห์ผล (รอบ 3 เดือน · พิมพ์ใต้กราฟ เว้นว่าง = ไม่แสดง)<textarea data-t="analysis" rows="5">${esc(b.analysis || '')}</textarea></label>
+    <div class="row"><button class="btn sm" data-x="draft">✨ ร่างวิเคราะห์ผลอัตโนมัติจากตัวเลข 3 เดือนล่าสุด</button><span class="hint">ตาม SOP รายงานโรงแรม: ยอดรายเดือน แนวโน้ม จุดที่ควรเฝ้าระวัง ข้อเสนอแนะ</span></div>
     <div class="row" style="margin-top:8px"><button class="btn sm" data-tsave>💾 บันทึกโครงตารางนี้เป็นแบบสำเร็จรูป (ใช้กับลูกค้าอื่นได้)</button>${b.tpl && USER_TPL.some(t => t.key === b.tpl) ? '<button class="btn sm" data-tupd>อัปเดตแบบเดิมด้วยโครงนี้</button>' : ''}</div>
     <h3 class="libh">แผนผังตำแหน่งจุดของตารางนี้ (Layout)</h3>${layoutEd(b, 'แนบ Layout ตำแหน่งจุด')}`; }
   if (b.type === 'sections') { const pl = [...new Set([...cpests(), ...b.items.map(s => s.pest).filter(Boolean)])]; const miss = cpests().filter(p => !b.items.some(s => s.pest === p));
@@ -388,6 +467,24 @@ function editorOf(b) {
     <div class="thumbs">${b.photos.map((p, j) => `<div class="th ${p.id.startsWith('up:') ? 'up' : ''}" style="width:${p.w >= p.h ? 128 : 96}px;height:${p.w >= p.h ? 96 : 128}px;background-image:url('${esc(imgURL(p.id))}')"><span class="idx">${j + 1}</span><div class="ctl"><button data-mv="-1" data-j="${j}">◀</button><button data-rm="${j}">✕</button><button data-mv="1" data-j="${j}">▶</button></div></div>`).join('')}</div>
     ${b.photos.length ? '<button class="btn sm del" data-x="clear">ลบรูปทั้งหมด</button>' : ''}`;
   if (b.type === 'image') return layoutEd(b, 'แนบแผนผัง / Layout / เอกสาร');
+  if (b.type === 'rooms') { const st = roomStat(b); const p = prevBlock(b);
+    return `<div class="grid2"><label class="f">จำนวนห้องพักทั้งหมด (ห้อง)<input type="number" min="0" data-t="total" value="${+b.total || 0}" class="num"></label>
+    <div class="stat" data-rstat><span>ทำบริการได้ <b>${st.done}</b> ห้อง (${st.pDone}%)</span><span>ไม่ได้ทำ <b>${st.not}</b> ห้อง (${st.pNot}%)</span></div></div>
+    <label class="f">หมายเลข${b.listMode === 'done' ? 'ห้องที่เข้าทำบริการได้' : 'ห้องที่ไม่ได้เข้าทำบริการ'} (คั่นด้วยช่องว่าง , หรือขึ้นบรรทัดใหม่ · ใส่ช่วงได้ เช่น 301-315) <span class="hint">· เปลี่ยนชนิดรายการได้ที่แท็บ 2</span><textarea data-t="rooms" rows="5" placeholder="702 703 704 706 801-813">${esc(b.rooms || '')}</textarea></label>
+    <div class="hint" data-rcount>นับได้ ${st.list.length} ห้อง${st.tot && st.list.length > st.tot ? ' · <b style="color:#d92d20">มากกว่าจำนวนห้องทั้งหมด</b>' : ''}</div>
+    ${p && p.rooms ? '<button class="btn sm" data-x="rcopy">คัดลอกเลขห้องจากเดือนก่อน</button>' : ''}
+    <label class="f" style="margin-top:10px">หมายเหตุ / สาเหตุที่เข้าไม่ได้ (เช่น มีแขกเข้าพัก, ห้องปิดปรับปรุง)<textarea data-t="note" rows="2">${esc(b.note || '')}</textarea></label>`; }
+  if (b.type === 'areas' || b.type === 'complain') { const C2 = b.type === 'complain';
+    return `${b.items.map((it, j) => `<div class="ait" data-j="${j}"><div class="row"><b>${j + 1}.</b>${C2 ? `<input type="date" data-k="date" value="${esc(it.date || '')}" style="width:150px">` : ''}<input data-k="area" value="${esc(it.area || '')}" placeholder="พื้นที่ เช่น Canteen, Lobby, Steward dish wash area" style="flex:1">
+      ${C2 ? `<select data-k="status">${Object.entries(CST).map(([k, v]) => `<option value="${k}" ${(it.status || 'open') === k ? 'selected' : ''}>${v[0]}</option>`).join('')}</select>` : ''}
+      <button class="btn sm" data-imv="-1">▲</button><button class="btn sm" data-imv="1">▼</button><button class="btn sm del" data-irm>ลบ</button></div>
+      <div class="grid2"><label class="f">${C2 ? 'ปัญหาที่พบ' : 'สิ่งที่พบ (ถ้ามี)'}<textarea data-k="problem" rows="2" placeholder="${C2 ? 'เช่น พบมดตัวเล็กบริเวณพื้นที่ล้างจาน' : 'เว้นว่างได้'}">${esc(it.problem || '')}</textarea></label>
+      ${C2 ? `<label class="f">คำแนะนำถึงลูกค้า<textarea data-k="suggest" rows="2" placeholder="เช่น แนะนำให้ทำความสะอาดพื้นที่ล้างจานสม่ำเสมอ">${esc(it.suggest || '')}</textarea></label>` : ''}
+      <label class="f">Action by Team AGA<textarea data-k="action" rows="2">${esc(it.action || '')}</textarea></label></div>
+      <div class="drop sm" data-idrop>📷 รูปพื้นที่นี้ (แถวละ 3 รูป) — ลากมาวาง หรือ <u>กดเพื่อเลือก</u></div>
+      <div class="thumbs">${(it.photos || []).map((p, k) => `<div class="th ${p.id.startsWith('up:') ? 'up' : ''}" style="width:${p.w >= p.h ? 112 : 84}px;height:${p.w >= p.h ? 84 : 112}px;background-image:url('${esc(imgURL(p.id))}')"><span class="idx">${k + 1}</span><div class="ctl"><button data-pmv="-1" data-k2="${k}">◀</button><button data-prm="${k}">✕</button><button data-pmv="1" data-k2="${k}">▶</button></div></div>`).join('')}</div></div>`).join('') || `<p class="hint">${C2 ? 'เดือนนี้ยังไม่มีข้อร้องเรียน' : 'ยังไม่มีพื้นที่'}</p>`}
+    <div class="row"><button class="btn sm pri" data-x="iadd">+ เพิ่ม${C2 ? 'ข้อร้องเรียน' : 'พื้นที่'}</button>${!C2 ? '<button class="btn sm" data-x="ibulk">วางชื่อพื้นที่หลายบรรทัด</button>' : ''}</div>
+    <div class="bulk" style="display:none"><textarea rows="5" placeholder="บรรทัดละ 1 พื้นที่"></textarea><div class="row"><button class="btn sm pri" data-x="ibulkok">เพิ่มพื้นที่เหล่านี้</button></div></div>`; }
   return '';
 }
 function laterKeys(b) { return Object.keys(reports).filter(k => k > curKey() && !reports[k]._new && (upgrade(reports[k]).blocks || []).some(x => x.id === b.id)).sort(); }
@@ -514,6 +611,29 @@ function bindEditor(box, b) {
   if (b.type === 'stations' || b.type === 'image') bindLayout(box, b, re);
   if (b.type === 'stations') { const ts = box.querySelector('[data-tsave]'); if (ts) ts.onclick = () => { const t = tplFromBlock(b, 'u' + uid()); USER_TPL.push(t); b.tpl = t.key; markDirty(); saveTpl(); re(); };
     const tu = box.querySelector('[data-tupd]'); if (tu) tu.onclick = () => { const i = USER_TPL.findIndex(t => t.key === b.tpl); const o = USER_TPL[i]; USER_TPL[i] = Object.assign(tplFromBlock(b, b.tpl), { icon: o.icon, label: o.label, desc: o.desc }); saveTpl(); }; }
+  if (b.type === 'stations') { const dr = box.querySelector('[data-x="draft"]'); if (dr) dr.onclick = () => { if ((b.analysis || '').trim() && !dr.dataset.sure) { dr.dataset.sure = 1; dr.textContent = 'แทนที่ข้อความเดิม? กดอีกครั้ง'; return; } b.analysis = draftAnalysis(b); markDirty(); re(); }; }
+  if (b.type === 'rooms') {
+    const up = () => { const st = roomStat(b); box.querySelector('[data-rstat]').innerHTML = `<span>ทำบริการได้ <b>${st.done}</b> ห้อง (${st.pDone}%)</span><span>ไม่ได้ทำ <b>${st.not}</b> ห้อง (${st.pNot}%)</span>`;
+      box.querySelector('[data-rcount]').innerHTML = `นับได้ ${st.list.length} ห้อง${st.tot && st.list.length > st.tot ? ' · <b style="color:#d92d20">มากกว่าจำนวนห้องทั้งหมด</b>' : ''}`; };
+    q('[data-t="total"]').forEach(e => e.oninput = () => { b.total = Math.max(0, Math.round(+e.value || 0)); markDirty(); up(); });
+    q('[data-t="rooms"]').forEach(e => e.oninput = () => { b.rooms = e.value; markDirty(); up(); });
+    const rc = box.querySelector('[data-x="rcopy"]'); if (rc) rc.onclick = () => { const p = prevBlock(b); b.rooms = p.rooms; if (!+b.total) b.total = p.total; markDirty(); re(); };
+  }
+  if (b.type === 'areas' || b.type === 'complain') { const fi = $('#fileIn');
+    box.querySelectorAll('.ait').forEach(ai => { const j = +ai.dataset.j, it = b.items[j]; it.photos = it.photos || [];
+      ai.querySelectorAll('[data-k]').forEach(e => { const f = () => { it[e.dataset.k] = e.value; markDirty(); }; e.oninput = f; e.onchange = f; });
+      ai.querySelectorAll('[data-imv]').forEach(x => x.onclick = () => { const k = j + +x.dataset.imv; if (k < 0 || k >= b.items.length) return; [b.items[j], b.items[k]] = [b.items[k], b.items[j]]; markDirty(); re(); });
+      const rm = ai.querySelector('[data-irm]'); rm.onclick = () => { if (!rm.dataset.sure) { rm.dataset.sure = 1; rm.textContent = 'ยืนยันลบ'; return; } b.items.splice(j, 1); markDirty(); re(); };
+      const d = ai.querySelector('[data-idrop]'); const take = fs => { fs = fs.filter(f => f.type.startsWith('image/')); if (fs.length) uploadMany(fs, it.photos, re); };
+      d.onclick = () => { fi.multiple = true; fi.onchange = () => { const fs = [...fi.files]; fi.value = ''; take(fs); }; fi.click(); };
+      d.ondragover = e => { e.preventDefault(); d.classList.add('ov'); }; d.ondragleave = () => d.classList.remove('ov'); d.ondrop = e => { e.preventDefault(); d.classList.remove('ov'); take([...e.dataTransfer.files]); };
+      ai.querySelectorAll('[data-pmv]').forEach(x => x.onclick = () => { const k = +x.dataset.k2, k2 = k + +x.dataset.pmv; if (k2 < 0 || k2 >= it.photos.length) return; [it.photos[k], it.photos[k2]] = [it.photos[k2], it.photos[k]]; markDirty(); re(); });
+      ai.querySelectorAll('[data-prm]').forEach(x => x.onclick = () => { it.photos.splice(+x.dataset.prm, 1); markDirty(); re(); }); });
+    const C2 = b.type === 'complain'; const blankIt = a => C2 ? { date: cur().svcDate || '', area: a || '', problem: '', suggest: '', action: '', status: 'open', photos: [] } : { area: a || '', problem: '', action: '', photos: [] };
+    q('[data-x="iadd"]').forEach(x => x.onclick = () => { b.items.push(blankIt()); markDirty(); re(); });
+    q('[data-x="ibulk"]').forEach(x => x.onclick = () => { const bl = box.querySelector('.bulk'); bl.style.display = bl.style.display === 'none' ? '' : 'none'; });
+    q('[data-x="ibulkok"]').forEach(x => x.onclick = () => { lines(box.querySelector('.bulk textarea').value).forEach(a => b.items.push(blankIt(a))); markDirty(); re(); });
+  }
   if (b.type === 'photos') {
     const fi = $('#fileIn'); const d = box.querySelector('[data-drop]');
     const take = fs => { fs = fs.filter(f => f.type.startsWith('image/')); if (!fs.length) return;
@@ -537,6 +657,11 @@ function issues() {
     if (b.type === 'sections') { const m = cpests().filter(p => !b.items.some(s => s.pest === p)); if (m.length) out.push(['warn', `${b.title}: ยังไม่มีหัวข้อสรุปผลของ ${m.join(', ')} (ตามสัญญา)`]);
       const nr = b.items.filter(s => !RISK[+s.risk]).length; if (nr) out.push(['warn', `${b.title}: ${nr} หัวข้อยังไม่ได้เลือกระดับความเสี่ยง`]); }
     if (b.type === 'sign' && b.showTechs !== false && !(b.techs || []).length) out.push(['bad', `${b.title}: ยังไม่ได้ใส่รายชื่อผู้เข้าทำบริการ`]);
+    if (b.type === 'rooms' && !+b.total) out.push(['bad', `${b.title}: ยังไม่ได้ใส่จำนวนห้องพักทั้งหมด`]);
+    if (b.type === 'rooms' && +b.total && parseRooms(b.rooms).length > +b.total) out.push(['warn', `${b.title}: จำนวนเลขห้องที่กรอกมากกว่าห้องทั้งหมด`]);
+    if (b.type === 'areas' && !b.items.some(it => okPh(it.photos).length)) out.push(['warn', `${b.title}: ยังไม่มีรูปพื้นที่`]);
+    if (b.type === 'complain' && b.items.some(it => (it.area || it.problem || '').trim() && !(it.action || '').trim())) out.push(['warn', `${b.title}: มีข้อร้องเรียนที่ยังไม่ได้ใส่ Action by Team AGA`]);
+    if (b.type === 'stations' && /เหยื่อพิษ|แมลงสาบ/.test(b.title) && C('preset') === 'hotel' && !(b.analysis || '').trim()) out.push(['warn', `${b.title}: ยังไม่มีวิเคราะห์ผล (SOP รายงานโรงแรมกำหนดให้มี)`]);
     if (b.type === 'photos' && !b.photos.length) out.push(['warn', `${b.title}: ยังไม่มีรูป (บล็อกนี้จะไม่ขึ้นในรายงาน)`]);
     if (b.type === 'image' && !(b.layouts || []).length) out.push(['warn', `${b.title}: ยังไม่ได้ใส่รูป (บล็อกนี้จะไม่ขึ้นในรายงาน)`]);
     if (b.type === 'stations' && b.action != null && stTotalOf(b) >= b.action) out.push(['warn', `${b.title}: ยอดรวม ${stTotalOf(b)} เกิน Action limit (${b.action})`]);

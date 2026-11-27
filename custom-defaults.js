@@ -35,7 +35,10 @@ const BLOCK_TYPES = {
   text:     { label: 'ข้อความอิสระ', icon: '✏️', desc: 'หัวข้อ + เนื้อหา เช่น หมายเหตุ แผนงาน ขอบเขตงาน' },
   photos:   { label: 'รูปภาพการทำบริการ', icon: '🖼️', desc: 'หน้าละ 4 / 6 / 9 รูป จัดแนวตั้ง-นอนอัตโนมัติ' },
   image:    { label: 'แนบ Layout / แผนผัง', icon: '🗺️', desc: 'รูปหรือไฟล์ PDF หลายแผ่น 1 แผ่นต่อหน้า พร้อมคำอธิบาย' },
-  sign:     { label: 'รายชื่อผู้ทำบริการ & ลงนาม', icon: '✍️', desc: 'รายชื่อช่าง ช่องเซ็นผู้จัดทำ / ผู้รับรายงาน' }
+  sign:     { label: 'รายชื่อผู้ทำบริการ & ลงนาม', icon: '✍️', desc: 'รายชื่อช่าง ช่องเซ็นผู้จัดทำ / ผู้รับรายงาน' },
+  rooms:    { label: 'Checklist Service Room (ห้องพัก)', icon: '🛏️', desc: 'โรงแรม/คอนโด: ห้องทั้งหมด ห้องที่ทำได้/ไม่ได้ คิดเป็น % พร้อมเลขห้องและกราฟรายเดือน' },
+  areas:    { label: 'รูปภาพทำบริการแต่ละพื้นที่', icon: '📍', desc: 'แยกตามพื้นที่ เช่น Canteen, Lobby, Club Lounge พร้อม Action by Team AGA' },
+  complain: { label: 'Follow up Complain (ติดตามข้อร้องเรียน)', icon: '📣', desc: 'ข้อร้องเรียนประจำเดือน ปัญหาที่พบ คำแนะนำลูกค้า การแก้ไขของ AGA สถานะ และรูป' }
 };
 const uid = () => 'b' + Math.random().toString(36).slice(2, 9);
 function newBlock(type, extra) {
@@ -49,6 +52,10 @@ function newBlock(type, extra) {
   if (type === 'photos') Object.assign(b, { title: CUSTOM_DEF.photoTitle, perPage: 9, photos: [] });
   if (type === 'image') Object.assign(b, { title: 'แผนผังตำแหน่งจุดวางอุปกรณ์', layouts: [], showTitle: true });
   if (type === 'sign') Object.assign(b, { title: 'รายชื่อผู้เข้าทำบริการ', techs: [...CUSTOM_DEF.techs], showTechs: true, showSign: true });
+  if (type === 'rooms') Object.assign(b, { title: 'Checklist Service Room · สรุปการเข้าทำบริการห้องพัก', total: 0, listMode: 'not', rooms: '', note: '', chart: true, newPage: true });
+  if (type === 'areas') Object.assign(b, { title: 'รูปภาพการทำบริการแต่ละพื้นที่', newPage: true,
+    items: ['Canteen', 'Lobby', 'Club Lounge'].map(a => ({ area: a, problem: '', action: 'ทีมบริการสำรวจแหล่งที่อยู่ของแมลง ฉีดพ่นสารเคมีตามพื้นที่เพื่อป้องกันและกำจัดแมลง\n(The service team surveyed the source of insects and sprayed the floor to prevent and eliminate insects.)', photos: [] })) });
+  if (type === 'complain') Object.assign(b, { title: 'ติดตามผลข้อร้องเรียน · Follow up Complain', items: [], showNone: true, newPage: true });
   return Object.assign(b, extra || {});
 }
 const ST = (title, unit, cols, found, locs, extra) => newBlock('stations', Object.assign({ title, unit, cols, found, showFound: !!found, rows: locs.map(l => ({ loc: l, v: cols.map(() => 0), rem: '' })) }, extra || {}));
@@ -81,5 +88,10 @@ const PRESETS = {
   cockroach: { label: 'บ้านแมลงสาบ + สรุปผล + รูป', make: () => [newBlock('cover'), newBlock('chem'),
     STATION_TPL.crst.make({ newPage: true }),
     newBlock('sections'), newBlock('photos', { perPage: 6 })] },
+  hotel: { label: '🏨 โรงแรม / คอนโด / ศูนย์การค้า (ตาม SOP รายงานโรงแรม)', make: () => [newBlock('cover', { coverTitle: 'รายงานสรุปการทำบริการ\nกำจัดแมลงและสัตว์รบกวนประจำเดือน' }),
+    newBlock('rooms'), newBlock('areas'), newBlock('complain'),
+    STATION_TPL.bait.make({ newPage: true, title: 'สรุปรายงานการกัดแทะเหยื่อพิษหนู (Rodent Bait Station)', n: 10, rows: Array.from({ length: 10 }, (_, i) => ({ loc: 'External Bait Station ' + (i + 1), v: [0], rem: '' })) }),
+    STATION_TPL.crst.make({ newPage: true, title: 'สรุปรายงานติดกับดักบ้านแมลงสาบ (Cockroach Trap)' }),
+    newBlock('chem'), newBlock('sections'), newBlock('sign')] },
   blank: { label: 'เริ่มจากหน้าเปล่า (มีแค่หน้าปก)', make: () => [newBlock('cover')] }
 };
