@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ปักหมุดลูกค้า</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+/* VOICE: เครื่องมือภาคสนาม ชัด เร็ว กดง่ายด้วยนิ้วเดียว
+   IDEA: บัตรสำรวจหน้างาน — สแกน แล้วหมุดตกลงบนแผนที่
+   PICTURE: ช่องกล้อง/แผนที่ใหญ่ด้านบนทุกหน้า
+   COLOUR and TYPE: เขียวเข้ม #00463c, ขาว, เขียวอ่อน #e6f5c8, ปะการัง #ff6f59 เตือน; IBM Plex Sans Thai
+   LAYOUT: คอลัมน์เดียวบนมือถือ, สองคอลัมน์จอกว้าง */
+:root{color-scheme:light dark;--bg:light-dark(#f4f6f4,#0e1513);--card:light-dark(#fff,#16201d);--ink:light-dark(#0f1a17,#e8efec);--mute:light-dark(#5a6b65,#93a49e);--line:light-dark(#dde4e0,#26332f);--g:#00463c;--lime:#e6f5c8;--warn:#ff6f59}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "IBM Plex Sans Thai",system-ui,sans-serif;overflow-x:clip}
+header{background:var(--g);color:#fff;padding:14px max(4vw,16px) 0;position:sticky;top:0;z-index:1000}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+h1{font-size:22px;margin:0;line-height:1.1}
+.tabs{display:flex;gap:4px;margin-top:10px}
+.tabs button{flex:1;background:transparent;color:#cfe3dc;border:0;border-bottom:3px solid transparent;padding:10px;font:600 16px inherit;font-family:inherit;min-height:44px;cursor:pointer}
+.tabs button.on{color:#fff;border-color:var(--lime)}
+.iconbtn{background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:10px;min-height:40px;padding:0 12px;font:inherit;cursor:pointer}
+main{max-width:1240px;margin:0 auto;padding:16px max(4vw,12px) 80px}
+.view{display:none}.view.on{display:block}
+.grid{display:grid;gap:16px}
+@media(min-width:900px){.grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.card h2{font-size:18px;margin:0 0 10px}
+#reader{width:100%;border-radius:12px;overflow:hidden;background:#000;min-height:260px}
+#reader video{border-radius:12px}
+#reader:empty{display:grid;place-items:center}#reader:empty::before{content:"กด เปิดกล้องสแกน แล้วส่อง QR";color:#cfe3dc;font-size:15px}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.btn{appearance:none;border:0;border-radius:12px;min-height:48px;padding:0 18px;font:600 16px inherit;font-family:inherit;cursor:pointer;background:var(--g);color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}
+.btn.alt{background:var(--lime);color:var(--g)}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.danger{background:transparent;color:var(--warn);border:1px solid var(--warn)}
+.btn.wide{flex:1}
+.btn:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+label{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px}
+input,textarea,select{width:100%;font:16px inherit;font-family:inherit;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+textarea{min-height:70px;resize:vertical}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 10px}
+.map{height:300px;border-radius:12px;border:1px solid var(--line);z-index:0}
+#bigmap{height:min(55vh,520px)}
+.coord{font-size:22px;font-weight:700;color:var(--g);font-variant-numeric:tabular-nums;white-space:nowrap}
+:root[data-theme=dark] .coord{color:var(--lime)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .coord{color:var(--lime)}}
+.note{font-size:14px;color:var(--mute);margin:6px 0 0}
+.alert{border-radius:10px;padding:10px 12px;margin-top:10px;font-size:15px;background:#ffe7e2;color:#7a1c0c}
+.ok{background:var(--lime);color:var(--g)}
+.raw{font-size:13px;color:var(--mute);overflow-wrap:anywhere;margin-top:6px}
+.hidden{display:none!important}
+.list{display:grid;gap:10px;margin-top:12px}
+.item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.item b{font-size:17px}
+.item .meta{font-size:14px;color:var(--mute)}
+.item .acts{grid-row:span 2;display:flex;flex-direction:column;gap:6px}
+.item .acts .btn{min-height:40px;padding:0 12px;font-size:14px}
+.badge{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;background:var(--lime);color:var(--g);margin-left:6px;white-space:nowrap}
+.badge.w{background:#ffe7e2;color:#7a1c0c}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#0f1a17;color:#fff;padding:12px 18px;border-radius:12px;z-index:2000;max-width:92vw;font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+dialog{border:0;border-radius:16px;padding:20px;max-width:440px;width:92vw;background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+@media(prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <h1>ปักหมุดลูกค้า</h1>
+    <button class="iconbtn" id="btnSettings" type="button">ตั้งค่า</button>
+  </div>
+  <nav class="tabs">
+    <button type="button" class="on" data-v="scan">สแกน QR</button>
+    <button type="button" data-v="all">แผนที่ลูกค้า</button>
+  </nav>
+</header>
+
+<main>
+<!-- ===== หน้าสแกน ===== -->
+<section class="view on" id="v-scan">
+  <div class="grid">
+    <div class="card">
+      <h2>1. สแกน QR ที่หน้างาน</h2>
+      <div id="reader"></div>
+      <div class="row">
+        <button class="btn wide" id="btnCam" type="button">เปิดกล้องสแกน</button>
+        <label class="btn alt" style="margin:0;color:var(--g)">สแกนจากรูป<input type="file" id="fileQr" accept="image/*" class="hidden"></label>
+      </div>
+      <label for="manual">หรือวางลิงก์ Google Maps / พิกัด</label>
+      <div class="row" style="margin-top:0">
+        <input id="manual" placeholder="https://maps.app.goo.gl/... หรือ 13.7563, 100.5018">
+        <button class="btn ghost" id="btnManual" type="button">ใช้ข้อมูลนี้</button>
+      </div>
+      <div id="scanMsg"></div>
+      <div class="raw" id="rawText"></div>
+    </div>
+
+    <div class="card" id="pinCard">
+      <h2>2. ตรวจหมุด</h2>
+      <div class="coord" id="coordTxt">ยังไม่มีพิกัด</div>
+      <p class="note" id="coordSrc">สแกน QR เพื่อปักหมุดอัตโนมัติ · ลากหมุดเพื่อปรับตำแหน่งได้</p>
+      <div id="minimap" class="map" style="margin-top:10px"></div>
+      <div class="row">
+        <button class="btn ghost" id="btnGps" type="button">ใช้ GPS มือถือตอนนี้</button>
+        <a class="btn ghost" id="lnkNav" target="_blank" rel="noopener">เปิดใน Google Maps</a>
+      </div>
+      <div id="gpsMsg"></div>
+    </div>
+  </div>
+
+  <form class="card" id="form" style="margin-top:16px" autocomplete="off">
+    <h2>3. ข้อมูลลูกค้า</h2>
+    <input type="hidden" id="f_id">
+    <div class="two">
+      <div><label for="f_code">รหัสลูกค้า</label><input id="f_code" placeholder="เช่น C-00123"></div>
+      <div><label for="f_team">ทีม/สาย</label><input id="f_team" placeholder="เช่น ทีม A"></div>
+    </div>
+    <label for="f_name">ชื่อลูกค้า / สาขา *</label><input id="f_name" required>
+    <label for="f_addr">ที่อยู่</label><textarea id="f_addr"></textarea>
+    <div class="two">
+      <div><label for="f_contact">ผู้ติดต่อ</label><input id="f_contact"></div>
+      <div><label for="f_phone">เบอร์โทร</label><input id="f_phone" inputmode="tel"></div>
+    </div>
+    <label for="f_note">หมายเหตุ (จุดเข้า-ออก, เวลาเข้างาน ฯลฯ)</label><textarea id="f_note"></textarea>
+    <label for="f_by">ผู้บันทึก</label><input id="f_by" placeholder="ชื่อช่าง/พนักงาน">
+    <div class="row">
+      <button class="btn wide" id="btnSave" type="submit">บันทึกลง Google Sheet</button>
+      <button class="btn ghost" id="btnClear" type="button">ล้างฟอร์ม</button>
+    </div>
+    <p class="note" id="queueNote"></p>
+  </form>
+</section>
+
+<!-- ===== หน้ารวม ===== -->
+<section class="view" id="v-all">
+  <div class="card">
+    <div class="row" style="margin-top:0">
+      <input id="q" placeholder="ค้นหาชื่อ รหัส ที่อยู่ ทีม" style="flex:2">
+      <button class="btn ghost" id="btnNear" type="button">เรียงใกล้ฉัน</button>
+      <button class="btn ghost" id="btnReload" type="button">รีเฟรช</button>
+      <button class="btn alt" id="btnCsv" type="button">ส่งออก CSV</button>
+    </div>
+    <div id="bigmap" class="map" style="margin-top:12px"></div>
+    <p class="note" id="countTxt"></p>
+  </div>
+  <div class="list" id="list"></div>
+</section>
+</main>
+
+<dialog id="dlg">
+  <h2 style="margin-top:0">ตั้งค่าการเชื่อมต่อ</h2>
+  <label for="s_url">Apps Script Web App URL</label>
+  <input id="s_url" placeholder="https://script.google.com/macros/s/.../exec">
+  <label for="s_token">รหัสผ่านระบบ (TOKEN ใน Code.gs)</label>
+  <input id="s_token">
+  <label for="s_by">ชื่อผู้บันทึกเริ่มต้น</label>
+  <input id="s_by">
+  <div class="row">
+    <button class="btn wide" id="s_save" type="button">บันทึก</button>
+    <button class="btn ghost" id="s_close" type="button">ปิด</button>
+  </div>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+{
+/* ---------- ค่าตั้งต้น (แก้ตรงนี้ หรือกด "ตั้งค่า" ในหน้าเว็บ) ---------- */
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxhKS_SHOt0CS3hf92COXHrRxQVxE9533b0YRWj6pypOIdCDiVOJySJjSV9kzJrIx_H7A/exec';      // วาง URL Web App ของ Apps Script
+const DEFAULT_TOKEN = 'aga-af660219';    // ต้องตรงกับ TOKEN ใน Code.gs
+const WARN_DIST_M = 300;     // เตือนเมื่อพิกัด QR ห่างจาก GPS มือถือเกินกี่เมตร
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('qrloc_'+k); return v===null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem('qrloc_'+k, JSON.stringify(v)); }catch(e){} }
+};
+const cfg = () => ({ url: store.get('url', DEFAULT_URL), token: store.get('token', DEFAULT_TOKEN), by: store.get('by', '') });
+let tt; const toast = m => { const t=$('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('on'),2800); };
+const msg = (el, text, kind) => { $(el).innerHTML = text ? `<div class="alert ${kind==='ok'?'ok':''}">${esc(text)}</div>` : ''; };
+
+/* ---------- แกะพิกัดจากลิงก์ Google Maps / ข้อความ ---------- */
+function dms(d, m, s, h){ let v = +d + (+m||0)/60 + (+s||0)/3600; if(/[SW]/i.test(h)) v = -v; return v; }
+function valid(lat, lng){ return isFinite(lat) && isFinite(lng) && Math.abs(lat)<=90 && Math.abs(lng)<=180 && !(lat===0 && lng===0); }
+function parseCoords(input){
+  if(!input) return null;
+  let t = String(input).trim();
+  for(let i=0;i<2;i++){ try{ t = decodeURIComponent(t.replace(/\+/g,' ')); }catch(e){} }
+  const N = '(-?\\d{1,3}\\.\\d+)';
+  const pats = [
+    new RegExp('!3d'+N+'!4d'+N),
+    new RegExp('[?&](?:q|query|ll|sll|center|destination|daddr|saddr|cbll)=(?:loc:)?\\s*'+N+'\\s*,\\s*\\+?'+N),
+    new RegExp('geo:'+N+'\\s*,\\s*'+N),
+    new RegExp('/search/'+N+'\\s*,\\s*\\+?'+N),
+    new RegExp('/place/'+N+'\\s*,\\s*\\+?'+N),
+    new RegExp('@'+N+','+N),
+    new RegExp('^'+N+'\\s*[,\\s]\\s*'+N+'$')
+  ];
+  const d = t.match(/(\d{1,3})°\s*(\d{1,2})['′]\s*([\d.]+)?["″]?\s*([NS])[\s,]+(\d{1,3})°\s*(\d{1,2})['′]\s*([\d.]+)?["″]?\s*([EW])/i);
+  if(d){ const a=dms(d[1],d[2],d[3],d[4]), b=dms(d[5],d[6],d[7],d[8]); if(valid(a,b)) return {lat:a,lng:b}; }
+  for(const p of pats){ const m = t.match(p); if(m){ const a=+m[1], b=+m[2]; if(valid(a,b)) return {lat:a,lng:b}; } }
+  const any = t.match(/(-?\d{1,2}\.\d{4,})\s*,\s*\+?(-?\d{1,3}\.\d{4,})/);
+  if(any){ const a=+any[1], b=+any[2]; if(valid(a,b)) return {lat:a,lng:b}; }
+  return null;
+}
+function placeName(input){
+  const m = String(input||'').match(/\/maps\/place\/([^/@?]+)/);
+  if(!m) return '';
+  try{ const n = decodeURIComponent(m[1].replace(/\+/g,' ')); return /^-?\d/.test(n) ? '' : n; }catch(e){ return ''; }
+}
+const isShort = s => /(maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs|maps\.google\.com\/\?cid|share\.google)/i.test(s||'');
+
+/* ---------- เรียก Apps Script ---------- */
+async function api(action, payload){
+  const c = cfg();
+  if(!c.url){ throw new Error('ยังไม่ได้ตั้งค่า URL ของ Apps Script (กดปุ่ม "ตั้งค่า")'); }
+  const r = await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ action, token:c.token, ...payload }) });
+  const j = await r.json();
+  if(!j.ok) throw new Error(j.error || 'เซิร์ฟเวอร์ตอบกลับผิดพลาด');
+  return j;
+}
+
+/* ---------- แผนที่ ---------- */
+const tiles = () => L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap' });
+const mini = L.map('minimap', { zoomControl:true }).setView([13.7563, 100.5018], 11); tiles().addTo(mini);
+let pin = null, gpsDot = null;
+const state = { lat:null, lng:null, raw:'', mapsUrl:'', src:'', scan:null };
+
+function setPin(lat, lng, src){
+  state.lat = +(+lat).toFixed(7); state.lng = +(+lng).toFixed(7); state.src = src;
+  if(!pin){ pin = L.marker([lat,lng], { draggable:true }).addTo(mini); pin.on('dragend', e => { const p = e.target.getLatLng(); setPin(p.lat, p.lng, 'ปรับหมุดเอง'); }); }
+  else pin.setLatLng([lat,lng]);
+  mini.setView([lat,lng], Math.max(mini.getZoom(), 17));
+  $('coordTxt').textContent = state.lat.toFixed(6)+', '+state.lng.toFixed(6);
+  $('coordSrc').textContent = 'ที่มา: '+src+' · ลากหมุดเพื่อปรับตำแหน่งได้';
+  $('lnkNav').href = 'https://www.google.com/maps/search/?api=1&query='+state.lat+','+state.lng;
+  checkDistance();
+}
+function distM(a, b){ const R=6371000, r=x=>x*Math.PI/180; const dLa=r(b.lat-a.lat), dLo=r(b.lng-a.lng); const h=Math.sin(dLa/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+function checkDistance(){
+  if(state.lat==null || !state.scan) return msg('gpsMsg','');
+  const d = Math.round(distM(state, state.scan));
+  state.scan.dist = d;
+  if(d > WARN_DIST_M) msg('gpsMsg', `หมุดห่างจากตำแหน่งที่คุณยืนอยู่ ${d.toLocaleString()} ม. — ตรวจว่า QR ถูกร้านหรือไม่ หรือกด "ใช้ GPS มือถือตอนนี้"`);
+  else msg('gpsMsg', `หมุดตรงกับตำแหน่งที่คุณยืนอยู่ (ห่าง ${d} ม.)`, 'ok');
+}
+function getGps(){
+  return new Promise((res, rej) => {
+    if(!navigator.geolocation) return rej(new Error('เครื่องนี้ไม่รองรับ GPS'));
+    navigator.geolocation.getCurrentPosition(p => res({ lat:p.coords.latitude, lng:p.coords.longitude, acc:Math.round(p.coords.accuracy) }),
+      e => rej(new Error(e.code===1 ? 'ไม่ได้อนุญาตให้เข้าถึงตำแหน่ง' : 'อ่านตำแหน่งไม่ได้')), { enableHighAccuracy:true, timeout:15000, maximumAge:10000 });
+  });
+}
+async function captureScanGps(){
+  try{
+    const g = await getGps(); state.scan = g;
+    if(!gpsDot) gpsDot = L.circleMarker([g.lat,g.lng], { radius:7, color:'#ff6f59', fillOpacity:.9 }).addTo(mini).bindTooltip('ตำแหน่งคุณ');
+    else gpsDot.setLatLng([g.lat,g.lng]);
+    checkDistance();
+  }catch(e){ /* ไม่บังคับ */ }
+}
+
+/* ---------- ประมวลผลข้อความจาก QR ---------- */
+async function handleText(text, how){
+  text = String(text||'').trim(); if(!text) return;
+  state.raw = text; state.mapsUrl = /^https?:/i.test(text) ? text : '';
+  $('rawText').textContent = 'ข้อมูลใน QR: ' + text;
+  captureScanGps();
+  let c = parseCoords(text), name = placeName(text);
+  if(!c && isShort(text)){
+    msg('scanMsg', 'กำลังเปิดลิงก์สั้นเพื่ออ่านพิกัด...', 'ok');
+    try{ const j = await api('resolve', { url:text }); c = j.lat!=null ? {lat:j.lat,lng:j.lng} : parseCoords(j.url); name = name || placeName(j.url) || j.name || ''; if(j.url) state.mapsUrl = j.url; }
+    catch(e){ msg('scanMsg', 'เปิดลิงก์สั้นไม่สำเร็จ: '+e.message); }
+  }
+  if(c){ setPin(c.lat, c.lng, how); msg('scanMsg', 'ปักหมุดจาก QR แล้ว', 'ok'); if(navigator.vibrate) navigator.vibrate(80); }
+  else msg('scanMsg', 'ไม่พบพิกัดใน QR นี้ — กด "ใช้ GPS มือถือตอนนี้" หรือแตะบนแผนที่เพื่อปักหมุดเอง');
+  if(name && !$('f_name').value) $('f_name').value = name;
+  findExisting(c);
+}
+mini.on('click', e => setPin(e.latlng.lat, e.latlng.lng, 'แตะบนแผนที่'));
+
+/* ---------- กล้อง ---------- */
+let qr = null, camOn = false;
+async function startCam(){
+  if(typeof Html5Qrcode === 'undefined') return toast('โหลดตัวสแกนไม่สำเร็จ ตรวจอินเทอร์เน็ต');
+  qr = qr || new Html5Qrcode('reader');
+  try{
+    await qr.start({ facingMode:'environment' }, { fps:10, qrbox:(w,h)=>{ const s=Math.floor(Math.min(w,h)*0.7); return {width:s,height:s}; } },
+      async t => { await stopCam(); handleText(t, 'สแกนด้วยกล้อง'); }, () => {});
+    camOn = true; $('btnCam').textContent = 'ปิดกล้อง';
+  }catch(e){ toast('เปิดกล้องไม่ได้: อนุญาตการใช้กล้องในเบราว์เซอร์ก่อน'); }
+}
+async function stopCam(){ if(qr && camOn){ try{ await qr.stop(); }catch(e){} } camOn=false; $('btnCam').textContent='เปิดกล้องสแกน'; }
+$('btnCam').onclick = () => camOn ? stopCam() : startCam();
+$('fileQr').onchange = async e => {
+  const f = e.target.files[0]; if(!f) return;
+  await stopCam(); qr = qr || new Html5Qrcode('reader');
+  try{ const t = await qr.scanFile(f, false); handleText(t, 'สแกนจากรูป'); }
+  catch(err){ msg('scanMsg', 'อ่าน QR จากรูปนี้ไม่ได้ ลองถ่ายให้ชัดและเต็มกรอบขึ้น'); }
+  e.target.value = '';
+};
+$('btnManual').onclick = () => handleText($('manual').value, 'วางลิงก์/พิกัด');
+$('btnGps').onclick = async () => {
+  $('btnGps').textContent = 'กำลังหาตำแหน่ง...';
+  try{ const g = await getGps(); state.scan = g; setPin(g.lat, g.lng, `GPS มือถือ (แม่นยำ ±${g.acc} ม.)`); }
+  catch(e){ msg('gpsMsg', e.message); }
+  $('btnGps').textContent = 'ใช้ GPS มือถือตอนนี้';
+};
+
+/* ---------- ข้อมูลลูกค้า ---------- */
+let rows = [];
+const F = ['id','code','team','name','addr','contact','phone','note','by'];
+function fillForm(r){ F.forEach(k => $('f_'+k).value = r[k] ?? ''); if(r.lat!=null && r.lat!=='') setPin(r.lat, r.lng, 'ข้อมูลเดิมในระบบ'); state.raw = r.qr_raw||state.raw; state.mapsUrl = r.maps_url||state.mapsUrl; }
+function clearForm(){ F.forEach(k => $('f_'+k).value=''); $('f_by').value = cfg().by; state.lat=state.lng=null; state.raw=state.mapsUrl=''; state.scan=null; if(pin){ mini.removeLayer(pin); pin=null; } $('coordTxt').textContent='ยังไม่มีพิกัด'; $('rawText').textContent=''; msg('scanMsg',''); msg('gpsMsg',''); $('manual').value=''; }
+function findExisting(c){
+  const hit = rows.find(r => (state.raw && r.qr_raw === state.raw) || (c && r.lat!=='' && distM(c, {lat:+r.lat,lng:+r.lng}) < 15));
+  if(hit && !$('f_id').value){ const src = state.src; fillForm(hit); if(c) setPin(c.lat, c.lng, src||'QR'); toast('พบลูกค้ารายนี้ในระบบแล้ว: '+(hit.name||hit.code)+' — บันทึกจะเป็นการแก้ไข'); }
+}
+function collect(){
+  const r = {}; F.forEach(k => r[k] = $('f_'+k).value.trim());
+  Object.assign(r, { lat:state.lat, lng:state.lng, maps_url:state.mapsUrl, qr_raw:state.raw, pin_source:state.src,
+    scan_lat:state.scan?.lat ?? '', scan_lng:state.scan?.lng ?? '', scan_acc:state.scan?.acc ?? '', dist_m:state.scan?.dist ?? '' });
+  return r;
+}
+/* คิวออฟไลน์: ถ้าส่งไม่ผ่าน เก็บไว้ในเครื่องแล้วส่งซ้ำอัตโนมัติ */
+const queue = () => store.get('queue', []);
+function showQueue(){ const n = queue().length; $('queueNote').textContent = n ? `มี ${n} รายการรอส่ง (ไม่มีสัญญาณ) — จะส่งให้อัตโนมัติเมื่อออนไลน์` : ''; }
+async function flush(){
+  const q = queue(); if(!q.length) return; const left = [];
+  for(const r of q){ try{ await api('save', { row:r }); }catch(e){ left.push(r); } }
+  store.set('queue', left); showQueue(); if(left.length < q.length){ toast(`ส่งรายการค้าง ${q.length-left.length} รายการแล้ว`); load(); }
+}
+$('form').onsubmit = async e => {
+  e.preventDefault();
+  if(state.lat==null) return toast('ยังไม่มีพิกัด — สแกน QR หรือใช้ GPS ก่อน');
+  if(!$('f_name').value.trim()) return toast('กรอกชื่อลูกค้า');
+  const r = collect(); store.set('by', r.by);
+  $('btnSave').disabled = true; $('btnSave').textContent = 'กำลังบันทึก...';
+  try{ const j = await api('save', { row:r }); toast(j.updated ? 'แก้ไขข้อมูลแล้ว' : 'บันทึกแล้ว'); clearForm(); load(); }
+  catch(err){
+    if(/URL|token|รหัส/i.test(err.message)) toast(err.message);
+    else { const q = queue(); q.push(r); store.set('queue', q); showQueue(); toast('ส่งไม่ได้ เก็บไว้ในเครื่องแล้ว จะส่งให้ภายหลัง'); clearForm(); }
+  }
+  $('btnSave').disabled = false; $('btnSave').textContent = 'บันทึกลง Google Sheet';
+};
+$('btnClear').onclick = clearForm;
+
+/* ---------- หน้ารวม ---------- */
+const big = L.map('bigmap').setView([13.7563, 100.5018], 10); tiles().addTo(big);
+const layer = L.layerGroup().addTo(big);
+let me = null;
+const navUrl = r => 'https://www.google.com/maps/dir/?api=1&destination='+r.lat+','+r.lng;
+function render(){
+  const q = $('q').value.trim().toLowerCase();
+  let list = rows.filter(r => r.lat!=='' && r.lat!=null).filter(r => !q || [r.name,r.code,r.addr,r.team,r.contact,r.phone].join(' ').toLowerCase().includes(q));
+  if(me){ list.forEach(r => r._d = distM(me, {lat:+r.lat,lng:+r.lng})); list.sort((a,b)=>a._d-b._d); }
+  layer.clearLayers();
+  const pts = list.map(r => { const m = L.marker([+r.lat,+r.lng]).addTo(layer);
+    m.bindPopup(`<b>${esc(r.name)}</b><br>${esc(r.code)} ${esc(r.team)}<br><a href="${esc(navUrl(r))}" target="_blank" rel="noopener">นำทาง</a>`); return [+r.lat,+r.lng]; });
+  if(pts.length) big.fitBounds(pts, { padding:[30,30], maxZoom:16 });
+  $('countTxt').textContent = `${list.length} จุด จากทั้งหมด ${rows.length} ลูกค้า`;
+  $('list').innerHTML = list.length ? list.map(r => `
+    <div class="item">
+      <div><b>${esc(r.name)}</b>${r.code?`<span class="badge">${esc(r.code)}</span>`:''}${r.dist_m!==''&&+r.dist_m>WARN_DIST_M?`<span class="badge w">หมุดห่างจุดสแกน ${esc(r.dist_m)} ม.</span>`:''}</div>
+      <div class="acts"><a class="btn" href="${esc(navUrl(r))}" target="_blank" rel="noopener">นำทาง</a><button class="btn ghost" type="button" data-edit="${esc(r.id)}">แก้ไข</button></div>
+      <div class="meta">${esc([r.team, r.addr, r.phone].filter(Boolean).join(' · '))}${r._d!=null?` · ห่าง ${(r._d/1000).toFixed(1)} กม.`:''}<br>บันทึก ${esc(r.updated_at||r.created_at)} ${r.by?'โดย '+esc(r.by):''}</div>
+    </div>`).join('') : '<div class="card">ยังไม่มีข้อมูล — ไปที่แท็บ "สแกน QR" เพื่อเริ่มเก็บพิกัดลูกค้า</div>';
+}
+async function load(){
+  if(!cfg().url){ $('countTxt').textContent = 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ'; render(); return; }
+  try{ const j = await api('list', {}); rows = j.rows || []; store.set('cache', rows); }
+  catch(e){ rows = store.get('cache', []); toast('โหลดข้อมูลล่าสุดไม่ได้ แสดงข้อมูลที่เก็บไว้ในเครื่อง'); }
+  render();
+}
+$('q').oninput = render;
+$('btnReload').onclick = load;
+$('btnNear').onclick = async () => { try{ me = await getGps(); render(); L.circleMarker([me.lat,me.lng],{radius:8,color:'#ff6f59',fillOpacity:.9}).addTo(layer).bindTooltip('คุณอยู่ที่นี่'); }catch(e){ toast(e.message); } };
+$('list').onclick = e => { const id = e.target.dataset?.edit; if(!id) return; const r = rows.find(x => String(x.id)===id); if(!r) return; clearForm(); fillForm(r); show('scan'); window.scrollTo(0,0); };
+$('btnCsv').onclick = () => {
+  const cols = ['code','name','team','addr','contact','phone','lat','lng','note','by','updated_at'];
+  const csv = '﻿' + [cols.join(','), ...rows.map(r => cols.map(k => '"'+String(r[k]??'').replace(/"/g,'""')+'"').join(','))].join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); a.download = 'customer-locations.csv'; a.click();
+};
+
+/* ---------- แท็บ / ตั้งค่า ---------- */
+function show(v){
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.v===v));
+  document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.id==='v-'+v));
+  if(v==='all'){ stopCam(); setTimeout(()=>{ big.invalidateSize(); render(); }, 50); } else setTimeout(()=>mini.invalidateSize(), 50);
+}
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => show(b.dataset.v));
+$('btnSettings').onclick = () => { const c = cfg(); $('s_url').value=c.url; $('s_token').value=c.token; $('s_by').value=c.by; $('dlg').showModal(); };
+$('s_close').onclick = () => $('dlg').close();
+$('s_save').onclick = () => { store.set('url', $('s_url').value.trim()); store.set('token', $('s_token').value.trim()); store.set('by', $('s_by').value.trim()); $('f_by').value = $('s_by').value.trim(); $('dlg').close(); toast('บันทึกการตั้งค่าแล้ว'); load(); flush(); };
+
+/* เปิดหน้าด้วยลิงก์ ?u=<ลิงก์แผนที่> ก็ปักหมุดได้ทันที */
+const pre = new URLSearchParams(location.search).get('u');
+$('f_by').value = cfg().by; showQueue(); load().then(() => { if(pre) handleText(pre, 'ลิงก์ที่เปิดเข้ามา'); });
+window.addEventListener('online', flush); flush();
+if(!cfg().url) setTimeout(() => $('btnSettings').click(), 400);
+window.__parseCoords = parseCoords; window.__placeName = placeName;
+}
+</script>
+</body>
+</html>
