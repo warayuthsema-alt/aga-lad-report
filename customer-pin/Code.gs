@@ -126,34 +126,77 @@ function deleteRow(id) {
   }
 }
 
-/* ---------- เปิดลิงก์สั้น maps.app.goo.gl เพื่ออ่านพิกัด ---------- */
+/* ---------- ตามลิงก์จาก QR (ลิงก์ย่อ / เว็บสร้าง QR / หน้ากลาง) จนเจอพิกัด ---------- */
+const UA = 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36';
+const MAP_LINK = /(?:https?:)?\/\/(?:www\.|maps\.)?(?:google\.[a-z.]+\/maps[^\s"'<>\\]*|maps\.google\.[a-z.]+[^\s"'<>\\]*|maps\.app\.goo\.gl\/[\w-]+|goo\.gl\/maps\/[\w-]+|maps\.apple\.com\/[^\s"'<>\\]*|(?:www\.)?waze\.com\/ul[^\s"'<>\\]*|share\.google\/[\w-]+)|geo:-?\d[^\s"'<>]*/gi;
+
+const IS_MAP = new RegExp(MAP_LINK.source, 'i');
+function isGoogle(host) { return /(^|\.)google\.[a-z.]+$|^maps\.app\.goo\.gl$|^goo\.gl$/i.test(host); }
+function hostOf(u) { return ((u.match(/^https?:\/\/([^\/?#:]+)/i) || [])[1] || '').toLowerCase(); }
+function absUrl(loc, base) {
+  loc = loc.trim();
+  if (/^https?:/i.test(loc) || /^geo:/i.test(loc)) return loc;
+  if (loc.indexOf('//') === 0) return 'https:' + loc;
+  const origin = (base.match(/^https?:\/\/[^\/?#]+/i) || [''])[0];
+  if (loc.charAt(0) === '/') return origin + loc;
+  return base.replace(/[^\/]*([?#].*)?$/, '') + loc;
+}
+function unescapeHtml(t) {
+  return t.replace(/\\u([0-9a-fA-F]{4})/g, (m, h) => String.fromCharCode(parseInt(h, 16))).replace(/\\\//g, '/')
+    .replace(/&amp;/g, '&').replace(/&#x2F;|&#47;/gi, '/').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+}
+
+/** อ่านหน้าเว็บ: หาลิงก์แผนที่, redirect แบบ meta/JS และพิกัดที่ฝังอยู่ */
+function scanHtml(html, base, host) {
+  const t = unescapeHtml(html);
+  const out = { coords: null, links: [], name: '' };
+  const og = t.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) || t.match(/<title[^>]*>([^<]{2,120})<\/title>/i);
+  if (og) out.name = og[1].split(' · ')[0].split(' - Google')[0].trim();
+  if (isGoogle(host)) {
+    const m = t.match(/center=(-?\d+\.\d+)%2C(-?\d+\.\d+)/) || t.match(/\[null,null,(-?\d+\.\d+),(-?\d+\.\d+)\]/) || t.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (m && valid(+m[1], +m[2])) out.coords = { lat: +m[1], lng: +m[2] };
+  }
+  (t.match(MAP_LINK) || []).forEach(l => out.links.push(absUrl(l, base)));
+  const redir = [
+    /<meta[^>]+http-equiv=["']?refresh["']?[^>]+content=["'][^"']*url=([^"'>]+)/i,
+    /(?:window\.|document\.|top\.)?location(?:\.href)?\s*=\s*["']([^"']+)["']/i,
+    /location\.(?:replace|assign)\(\s*["']([^"']+)["']/i,
+    /<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i
+  ];
+  redir.forEach(r => { const m = t.match(r); if (m) out.links.push(absUrl(m[1], base)); });
+  return out;
+}
+
 function resolveUrl(url) {
   if (!url || !/^https?:\/\//i.test(url)) return { ok: false, error: 'ลิงก์ไม่ถูกต้อง' };
-  const allowed = /^(maps\.app\.goo\.gl|goo\.gl|g\.co|share\.google|(www\.|maps\.)?google\.[a-z.]+)$/i;
-  let u = url, name = '';
-  for (let i = 0; i < 6; i++) {
-    const host = (u.match(/^https?:\/\/([^\/?#]+)/i) || [])[1] || '';
-    if (!allowed.test(host)) break;
+  const queue = [url], seen = {};
+  let name = '', last = url;
+  for (let hop = 0; hop < 10 && queue.length; hop++) {
+    const u = queue.shift();
+    if (seen[u]) { hop--; continue; }
+    seen[u] = 1; last = u;
     const c = parseCoords(u);
-    if (c) return { ok: true, url: u, lat: c.lat, lng: c.lng, name: placeName(u) };
-    const res = UrlFetchApp.fetch(u, { followRedirects: false, muteHttpExceptions: true,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36' } });
+    if (c) return { ok: true, url: u, lat: c.lat, lng: c.lng, name: placeName(u) || name, hops: hop };
+    if (!/^https?:/i.test(u)) continue;
+    let res;
+    try {
+      res = UrlFetchApp.fetch(u, { followRedirects: false, muteHttpExceptions: true, validateHttpsCertificates: false,
+        headers: { 'User-Agent': UA, 'Accept-Language': 'th,en;q=0.8' } });
+    } catch (e) { continue; }
     const h = res.getAllHeaders();
     const loc = h.Location || h.location;
-    if (loc) {
-      u = /^https?:/i.test(loc) ? loc : 'https://' + host + (loc.charAt(0) === '/' ? '' : '/') + loc;
-      continue;
-    }
-    // ไม่มี redirect แล้ว → ลองหาในเนื้อหาหน้า
-    const html = res.getContentText().slice(0, 300000);
-    const m = html.match(/center=(-?\d+\.\d+)%2C(-?\d+\.\d+)/) || html.match(/\[null,null,(-?\d+\.\d+),(-?\d+\.\d+)\]/)
-      || html.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-    const t = html.match(/<meta[^>]+property="og:title"[^>]+content="([^"]+)"/);
-    if (t) name = t[1].split(' · ')[0];
-    if (m && valid(+m[1], +m[2])) return { ok: true, url: u, lat: +m[1], lng: +m[2], name: placeName(u) || name };
-    break;
+    if (loc) { queue.unshift(absUrl(String(loc), u)); continue; }
+    const ct = String(h['Content-Type'] || h['content-type'] || '');
+    if (ct && !/html|text|json/i.test(ct)) continue;
+    const host = hostOf(u);
+    const s = scanHtml(res.getContentText().slice(0, 600000), u, host);
+    if (s.name && !name && !isGoogle(host)) name = s.name;
+    if (s.coords) return { ok: true, url: u, lat: s.coords.lat, lng: s.coords.lng, name: placeName(u) || s.name || name, hops: hop };
+    // ลิงก์แผนที่ก่อน แล้วค่อย redirect อื่น
+    const mapsFirst = s.links.filter(l => !seen[l]).sort((a, b) => (IS_MAP.test(b) ? 1 : 0) - (IS_MAP.test(a) ? 1 : 0));
+    for (let i = mapsFirst.length - 1; i >= 0; i--) queue.unshift(mapsFirst[i]);
   }
-  return { ok: true, url: u, lat: null, lng: null, name: placeName(u) || name };
+  return { ok: true, url: last, lat: null, lng: null, name: placeName(last) || name };
 }
 
 /* ---------- แกะพิกัด (ตรรกะเดียวกับหน้าเว็บ) ---------- */
@@ -168,8 +211,9 @@ function parseCoords(input) {
   const N = '(-?\\d{1,3}\\.\\d+)';
   const pats = [
     new RegExp('!3d' + N + '!4d' + N),
-    new RegExp('[?&](?:q|query|ll|sll|center|destination|daddr|saddr|cbll)=(?:loc:)?\\s*' + N + '\\s*,\\s*\\+?' + N),
-    new RegExp('geo:' + N + '\\s*,\\s*' + N),
+    new RegExp('[?&](?:q|query|ll|sll|center|destination|daddr|saddr|cbll|coordinates|location)=(?:loc:)?\\s*' + N + '\\s*,\\s*\\+?' + N, 'i'),
+    new RegExp('[?&](?:lat|latitude)=\\s*' + N + '&(?:lng|lon|long|longitude)=\\s*' + N, 'i'),
+    new RegExp('geo[:;][^\\d-]{0,24}?' + N + '\\s*[,;]\\s*' + N, 'i'),
     new RegExp('/search/' + N + '\\s*,\\s*\\+?' + N),
     new RegExp('/place/' + N + '\\s*,\\s*\\+?' + N),
     new RegExp('@' + N + ',' + N),

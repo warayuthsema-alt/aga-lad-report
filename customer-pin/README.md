@@ -38,6 +38,8 @@
 - `https://www.google.com/maps/place/...` (ใช้พิกัดจริงของสถานที่ `!3d…!4d…` ก่อนพิกัดกลางจอ `@`)
 - `https://maps.google.com/?q=lat,lng`, `…/maps/search/?api=1&query=…`
 - ลิงก์สั้น `maps.app.goo.gl/…` (ส่งให้ Apps Script เปิดลิงก์และอ่านพิกัดให้)
+- QR จากเว็บสร้าง QR อื่น ๆ (qr-code-generator, me-qr, QR Code Monkey, bit.ly, tinyurl ฯลฯ) — ระบบตามลิงก์ redirect ได้สูงสุด 10 ทอด และอ่านหน้ากลางเพื่อหาปุ่ม/ลิงก์ Google Maps, Apple Maps, Waze, meta refresh หรือ JavaScript redirect
+- vCard / MECARD ที่มี `GEO:lat;lng`, ลิงก์ที่มี `?lat=…&lng=…`, Waze `?ll=…`, Apple Maps `?ll=…`
 - `geo:lat,lng`, ข้อความ `13.7563, 100.5018` หรือแบบองศา `13°48'58.6"N 100°33'39.4"E`
 - ถ้า QR ไม่มีพิกัด ระบบยังเก็บข้อความใน QR ไว้ แล้วให้ปักหมุดด้วย GPS แทน
 
